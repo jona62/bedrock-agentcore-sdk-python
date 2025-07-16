@@ -41,7 +41,7 @@ app = BedrockAgentCoreApp()
 
 @app.entrypoint  
 def production_agent(request):
-    return my_local_agent(request['query'])  # Same logic, enterprise platform
+    return my_local_agent(request.get("prompt"))  # Same logic, enterprise platform
 
 production_agent.run()  # Ready to run on Bedrock AgentCore
 ```
