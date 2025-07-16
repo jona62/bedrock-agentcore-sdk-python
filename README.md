@@ -35,11 +35,11 @@ def my_local_agent(query):
     # Your carefully crafted agent logic
     return agent.process(query)
 
-# Deploy to Bedrock AgentCore  
+# Deploy to Bedrock AgentCore
 from bedrock_agentcore import BedrockAgentCoreApp
 app = BedrockAgentCoreApp()
 
-@app.entrypoint  
+@app.entrypoint
 def production_agent(request):
     return my_local_agent(request.get("prompt"))  # Same logic, enterprise platform
 
@@ -65,14 +65,14 @@ async def process_documents(files):
     # Long-running AI processing
     return results
 
-@app.ping  # Custom health status  
+@app.ping  # Custom health status
 def health_check():
     return "HEALTHY" if all_services_up() else "HEALTHY_BUSY"
 ```
 
 **Enterprise Platform Services**
 - 🧠 **Memory** - Persistent knowledge across sessions
-- 🔗 **Gateway** - Transform APIs into MCP tools  
+- 🔗 **Gateway** - Transform APIs into MCP tools
 - 💻 **Code Interpreter** - Secure sandboxed execution
 - 🌐 **Browser** - Cloud-based web automation
 - 📊 **Observability** - OpenTelemetry tracing
