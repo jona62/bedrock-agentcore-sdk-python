@@ -28,8 +28,8 @@
 
 ```python
 # Your existing agent (any framework)
-from langgraph import StateGraph
-# or CrewAI, Autogen, custom logic - doesn't matter
+from strands import Agent
+# or LangGraph, CrewAI, Autogen, custom logic - doesn't matter
 
 def my_local_agent(query):
     # Your carefully crafted agent logic
@@ -47,7 +47,7 @@ app.run()  # Ready to run on Bedrock AgentCore
 ```
 
 **What you get with Bedrock AgentCore:**
-- ✅ **Keep your agent logic** - Works with LangGraph, CrewAI, Autogen, custom frameworks
+- ✅ **Keep your agent logic** - Works with Strands, LangGraph, CrewAI, Autogen, custom frameworks
 - ✅ **Zero infrastructure management** - No servers, containers, or scaling concerns
 - ✅ **Enterprise-grade platform** - Built-in auth, memory, observability, security
 - ✅ **Production-ready deployment** - Reliable, scalable, compliant hosting
@@ -82,7 +82,7 @@ def health_check():
 
 **Quick Start:** Use the [Bedrock AgentCore Starter Toolkit](https://github.com/aws/bedrock-agentcore-starter-toolkit) for rapid prototyping.
 
-**Production:** Deploy with [AWS CDK](https://aws.amazon.com/cdk/) for infrastructure as code.
+**Production:** [AWS CDK](https://aws.amazon.com/cdk/) - coming soon.
 
 ## 📝 License & Contributing
 
