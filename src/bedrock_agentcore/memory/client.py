@@ -39,24 +39,18 @@ logger = logging.getLogger(__name__)
 class MemoryClient:
     """High-level Bedrock AgentCore Memory client with essential operations."""
 
-    def __init__(self, region_name: str = "us-west-2", environment: str = "prod"):
+    def __init__(self, region_name: Optional[str] = None, environment: str = "prod"):
         """Initialize the Memory client."""
-        self.region_name = region_name
-        if os.getenv("AWS_REGION"):
-            env_region = os.getenv("AWS_REGION")
-            if env_region != region_name:
-                warnings.warn(
-                    f"AWS_REGION environment variable ({env_region}) differs from provided "
-                    f"region_name ({region_name}). Using provided region_name.",
-                    stacklevel=2,
-                )
+
+        self.region_name = region_name or os.getenv("AWS_REGION") or boto3.Session().region_name or "us-west-2"
         self.environment = environment
 
+        # Use region_name in endpoint URLs
         self.control_plane_endpoint = os.getenv(
-            "AGENTCORE_CONTROL_ENDPOINT", "https://bedrock-agentcore-control.us-west-2.amazonaws.com"
+            "AGENTCORE_CONTROL_ENDPOINT", f"https://bedrock-agentcore-control.{self.region_name}.amazonaws.com"
         )
         self.data_plane_endpoint = os.getenv(
-            "AGENTCORE_DATA_ENDPOINT", "https://bedrock-agentcore.us-west-2.amazonaws.com"
+            "AGENTCORE_DATA_ENDPOINT", f"https://bedrock-agentcore.{self.region_name}.amazonaws.com"
         )
 
         control_service = os.getenv("AGENTCORE_CONTROL_SERVICE", "bedrock-agentcore-control")
