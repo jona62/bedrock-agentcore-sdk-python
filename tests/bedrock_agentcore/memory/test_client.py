@@ -14,36 +14,53 @@ from bedrock_agentcore.memory.constants import StrategyType
 def test_client_initialization():
     """Test client initialization."""
     with patch("boto3.client") as mock_boto_client:
-        # Test gamma environment
-        client = MemoryClient(region_name="us-west-2", environment="gamma")
+        # Setup the mock to return a consistent region_name
+        mock_client_instance = MagicMock()
+        mock_client_instance.meta.region_name = "us-west-2"
+        mock_boto_client.return_value = mock_client_instance
 
+        client = MemoryClient(region_name="us-west-2")
+
+        # Check that the region was set correctly and boto3.client was called twice
         assert client.region_name == "us-west-2"
         assert mock_boto_client.call_count == 2
 
 
 def test_client_initialization_region_mismatch():
     """Test client initialization with region mismatch warning."""
-    with patch("boto3.client"):
-        with patch("os.getenv") as mock_getenv:
-            # Mock AWS_REGION environment variable
-            mock_getenv.return_value = "us-east-1"
 
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
+    with patch("boto3.client") as mock_boto_client:
+        # First test - environment variable takes precedence
+        with patch("boto3.Session") as mock_session:
+            # Mock the session instance to simulate AWS_REGION=us-east-1
+            mock_session_instance = MagicMock()
+            mock_session_instance.region_name = "us-east-1"
+            mock_session.return_value = mock_session_instance
 
-                # Initialize client with different region than AWS_REGION
-                client = MemoryClient(region_name="us-west-2", environment="prod")
+            # Mock the boto client
+            mock_client_instance = MagicMock()
+            mock_client_instance.meta.region_name = "us-east-1"
+            mock_boto_client.return_value = mock_client_instance
 
-                # Verify warning was issued
-                assert len(w) >= 1
-                warning_messages = [str(warning.message) for warning in w]
-                assert any(
-                    "AWS_REGION environment variable (us-east-1) differs from provided region_name (us-west-2)" in msg
-                    for msg in warning_messages
-                )
+            # When region_name is provided, environment variable should still take precedence
+            client1 = MemoryClient(region_name="us-west-2")
+            assert client1.region_name == "us-east-1"  # Environment wins over explicit param
 
-                # Verify client uses provided region_name, not environment variable
-                assert client.region_name == "us-west-2"
+        # Second test - no environment variable, explicit param is used
+        with patch("boto3.Session") as mock_session:
+            # Mock the session instance to simulate no AWS_REGION set
+            mock_session_instance = MagicMock()
+            mock_session_instance.region_name = None
+            mock_session.return_value = mock_session_instance
+
+            # Mock the boto client
+            mock_client_instance = MagicMock()
+            mock_client_instance.meta.region_name = "us-west-2"
+            mock_boto_client.return_value = mock_client_instance
+
+            # When AWS_REGION is not set, explicitly provided region should be used
+            client2 = MemoryClient(region_name="us-west-2")
+            assert client2.region_name == "us-west-2"
 
 
 def test_namespace_defaults():
