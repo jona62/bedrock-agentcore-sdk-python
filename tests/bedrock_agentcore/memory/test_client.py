@@ -30,8 +30,9 @@ def test_client_initialization_region_mismatch():
     """Test client initialization with region mismatch warning."""
 
     with patch("boto3.client") as mock_boto_client:
+        # First test - environment variable takes precedence
         with patch("boto3.Session") as mock_session:
-            # Mock the session instance
+            # Mock the session instance to simulate AWS_REGION=us-east-1
             mock_session_instance = MagicMock()
             mock_session_instance.region_name = "us-east-1"
             mock_session.return_value = mock_session_instance
@@ -41,17 +42,23 @@ def test_client_initialization_region_mismatch():
             mock_client_instance.meta.region_name = "us-east-1"
             mock_boto_client.return_value = mock_client_instance
 
-            # When region_name is not provided, it should use the boto3 default
-            client1 = MemoryClient()
-            assert client1.region_name == "us-east-1"
+            # When region_name is provided, environment variable should still take precedence
+            client1 = MemoryClient(region_name="us-west-2")
+            assert client1.region_name == "us-east-1"  # Environment wins over explicit param
 
-            # Reset the mock to test with a specified region
-            mock_boto_client.reset_mock()
+        # Second test - no environment variable, explicit param is used
+        with patch("boto3.Session") as mock_session:
+            # Mock the session instance to simulate no AWS_REGION set
+            mock_session_instance = MagicMock()
+            mock_session_instance.region_name = None
+            mock_session.return_value = mock_session_instance
+
+            # Mock the boto client
             mock_client_instance = MagicMock()
             mock_client_instance.meta.region_name = "us-west-2"
             mock_boto_client.return_value = mock_client_instance
 
-            # When region_name is provided, it should use that value
+            # When AWS_REGION is not set, explicitly provided region should be used
             client2 = MemoryClient(region_name="us-west-2")
             assert client2.region_name == "us-west-2"
 
