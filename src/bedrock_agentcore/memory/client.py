@@ -41,11 +41,18 @@ class MemoryClient:
 
     def __init__(self, region_name: Optional[str] = None, environment: str = "prod"):
         """Initialize the Memory client."""
-
-        self.region_name = region_name or os.getenv("AWS_REGION") or boto3.Session().region_name or "us-west-2"
+        env_region = os.getenv("AWS_REGION")
+        if region_name is not None and env_region is not None and env_region != region_name:
+            warnings.warn(
+                f"AWS_REGION environment variable ({env_region}) differs from provided "
+                f"region_name ({region_name}). Using provided region_name.",
+                stacklevel=2,
+            )
+            self.region_name = region_name
+        else:
+            self.region_name = region_name or env_region or boto3.Session().region_name or "us-west-2"
         self.environment = environment
 
-        # Use region_name in endpoint URLs
         self.control_plane_endpoint = os.getenv(
             "AGENTCORE_CONTROL_ENDPOINT", f"https://bedrock-agentcore-control.{self.region_name}.amazonaws.com"
         )
