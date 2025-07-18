@@ -690,7 +690,7 @@ def main():
 
     logger.info("Using region: %s, environment: %s", region, environment)
 
-    client = MemoryClient(region_name=region, environment=environment)
+    client = MemoryClient(region_name=region)
 
     logger.info("\nCreating test memory with strategies...")
     memory = client.create_memory(

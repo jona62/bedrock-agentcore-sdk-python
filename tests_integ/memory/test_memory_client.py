@@ -348,7 +348,7 @@ def main():
 
     logger.info("Using region: %s, environment: %s", region, environment)
 
-    client = MemoryClient(region_name=region, environment=environment)
+    client = MemoryClient(region_name=region)
 
     # Test Issue #2 first (strategy polling)
     test_strategy_polling_fix(client)

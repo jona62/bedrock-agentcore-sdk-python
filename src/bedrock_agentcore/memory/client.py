@@ -10,7 +10,6 @@ backward compatibility.
 
 import copy
 import logging
-import os
 import time
 import uuid
 import warnings
@@ -39,39 +38,15 @@ logger = logging.getLogger(__name__)
 class MemoryClient:
     """High-level Bedrock AgentCore Memory client with essential operations."""
 
-    def __init__(self, region_name: Optional[str] = None, environment: str = "prod"):
+    def __init__(self, region_name: Optional[str] = None):
         """Initialize the Memory client."""
-        env_region = os.getenv("AWS_REGION")
-        if region_name is not None and env_region is not None and env_region != region_name:
-            warnings.warn(
-                f"AWS_REGION environment variable ({env_region}) differs from provided "
-                f"region_name ({region_name}). Using provided region_name.",
-                stacklevel=2,
-            )
-            self.region_name = region_name
-        else:
-            self.region_name = region_name or env_region or boto3.Session().region_name or "us-west-2"
-        self.environment = environment
+        self.gmcp_client = boto3.client("bedrock-agentcore-control", region_name=region_name)
+        self.gmdp_client = boto3.client("bedrock-agentcore", region_name=region_name)
 
-        self.control_plane_endpoint = os.getenv(
-            "AGENTCORE_CONTROL_ENDPOINT", f"https://bedrock-agentcore-control.{self.region_name}.amazonaws.com"
-        )
-        self.data_plane_endpoint = os.getenv(
-            "AGENTCORE_DATA_ENDPOINT", f"https://bedrock-agentcore.{self.region_name}.amazonaws.com"
-        )
+        # Store the region that was actually used
+        self.region_name = self.gmcp_client.meta.region_name
 
-        control_service = os.getenv("AGENTCORE_CONTROL_SERVICE", "bedrock-agentcore-control")
-        data_service = os.getenv("AGENTCORE_DATA_SERVICE", "bedrock-agentcore")
-
-        self.gmcp_client = boto3.client(
-            control_service, region_name=self.region_name, endpoint_url=self.control_plane_endpoint
-        )
-
-        self.gmdp_client = boto3.client(
-            data_service, region_name=self.region_name, endpoint_url=self.data_plane_endpoint
-        )
-
-        logger.info("Initialized MemoryClient for %s in %s", environment, region_name)
+        logger.info("Initialized MemoryClient for %s", region_name)
 
     def create_memory(
         self,
