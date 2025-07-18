@@ -30,24 +30,30 @@ def test_client_initialization_region_mismatch():
     """Test client initialization with region mismatch warning."""
 
     with patch("boto3.client") as mock_boto_client:
-        # First mock a default region when none is specified
-        mock_client_instance = MagicMock()
-        mock_client_instance.meta.region_name = "us-east-1"
-        mock_boto_client.return_value = mock_client_instance
+        with patch("boto3.Session") as mock_session:
+            # Mock the session instance
+            mock_session_instance = MagicMock()
+            mock_session_instance.region_name = "us-east-1"
+            mock_session.return_value = mock_session_instance
 
-        # When region_name is not provided, it should use the boto3 default
-        client1 = MemoryClient()
-        assert client1.region_name == "us-east-1"
+            # Mock the boto client
+            mock_client_instance = MagicMock()
+            mock_client_instance.meta.region_name = "us-east-1"
+            mock_boto_client.return_value = mock_client_instance
 
-        # Reset the mock to test with a specified region
-        mock_boto_client.reset_mock()
-        mock_client_instance = MagicMock()
-        mock_client_instance.meta.region_name = "us-west-2"
-        mock_boto_client.return_value = mock_client_instance
+            # When region_name is not provided, it should use the boto3 default
+            client1 = MemoryClient()
+            assert client1.region_name == "us-east-1"
 
-        # When region_name is provided, it should use that value
-        client2 = MemoryClient(region_name="us-west-2")
-        assert client2.region_name == "us-west-2"
+            # Reset the mock to test with a specified region
+            mock_boto_client.reset_mock()
+            mock_client_instance = MagicMock()
+            mock_client_instance.meta.region_name = "us-west-2"
+            mock_boto_client.return_value = mock_client_instance
+
+            # When region_name is provided, it should use that value
+            client2 = MemoryClient(region_name="us-west-2")
+            assert client2.region_name == "us-west-2"
 
 
 def test_namespace_defaults():

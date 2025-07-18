@@ -44,9 +44,9 @@ class MemoryClient:
         self.gmdp_client = boto3.client("bedrock-agentcore", region_name=region_name)
 
         # Store the region that was actually used
-        self.region_name = self.gmcp_client.meta.region_name
+        self.region_name = region_name if region_name else boto3.Session().region_name or "us-west-2"
 
-        logger.info("Initialized MemoryClient for %s", region_name)
+        logger.info("Initialized MemoryClient for %s", self.region_name)
 
     def create_memory(
         self,
