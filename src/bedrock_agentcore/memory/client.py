@@ -973,10 +973,7 @@ class MemoryClient:
                 turns.append(current_turn)
 
             # Return the last k turns
-            if len(turns) > k:
-                result = turns[-k:]  # Get last k turns
-            else:
-                result = turns
+            result = turns[:k]
 
             return result
 
