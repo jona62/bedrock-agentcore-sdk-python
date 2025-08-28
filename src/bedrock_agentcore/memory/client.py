@@ -92,6 +92,40 @@ class MemoryClient:
             logger.error("Failed to create memory: %s", e)
             raise
 
+    def create_or_get_memory(
+        self,
+        name: str,
+        strategies: Optional[List[Dict[str, Any]]] = None,
+        description: Optional[str] = None,
+        event_expiry_days: int = 90,
+        memory_execution_role_arn: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Create a memory resource or fetch the existing memory details if it already exists.
+
+        Returns:
+            Memory object, either newly created or existing
+        """
+        try:
+            memory = self.create_memory_and_wait(
+                name=name,
+                strategies=strategies,
+                description=description,
+                event_expiry_days=event_expiry_days,
+                memory_execution_role_arn=memory_execution_role_arn,
+            )
+            return memory
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ValidationException" and "already exists" in str(e):
+                memories = self.list_memories()
+                memory = next((m for m in memories if m["id"].startswith(name)), None)
+                logger.info("Memory already exists. Using existing memory ID: %s", memory["id"])
+                return memory
+            else:
+                logger.error("ClientError: Failed to create or get memory: %s", e)
+                raise
+        except Exception:
+            raise
+
     def create_memory_and_wait(
         self,
         name: str,
@@ -340,6 +374,65 @@ class MemoryClient:
 
         except ClientError as e:
             logger.error("Failed to create event: %s", e)
+            raise
+
+    def create_blob_event(
+        self,
+        memory_id: str,
+        actor_id: str,
+        session_id: str,
+        blob_data: Any,
+        event_timestamp: Optional[datetime] = None,
+        branch: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """Save a blob event to AgentCore Memory.
+
+        Args:
+            memory_id: Memory resource ID
+            actor_id: Actor identifier
+            session_id: Session identifier
+            blob_data: Binary or structured data to store
+            event_timestamp: Optional timestamp for the event
+            branch: Optional branch info
+
+        Returns:
+            Created event
+
+        Example:
+            # Store binary data
+            event = client.create_blob_event(
+                memory_id="mem-xyz",
+                actor_id="user-123",
+                session_id="session-456",
+                blob_data={"file_content": "base64_encoded_data", "metadata": {"type": "image"}}
+            )
+        """
+        try:
+            payload = [{"blob": blob_data}]
+
+            if event_timestamp is None:
+                event_timestamp = datetime.utcnow()
+
+            params = {
+                "memoryId": memory_id,
+                "actorId": actor_id,
+                "sessionId": session_id,
+                "eventTimestamp": event_timestamp,
+                "payload": payload,
+            }
+
+            if branch:
+                params["branch"] = branch
+
+            response = self.gmdp_client.create_event(**params)
+
+            event = response["event"]
+            logger.info("Created blob event: %s", event["eventId"])
+
+            return event
+
+        except ClientError as e:
+            logger.error("Failed to create blob event: %s", e)
             raise
 
     def save_conversation(
