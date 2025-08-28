@@ -644,6 +644,7 @@ class MemoryClient:
                     "actorId": actor_id,
                     "sessionId": session_id,
                     "maxResults": min(100, max_results - len(all_events)),
+                    "includePayloads": include_payload,
                 }
 
                 if next_token:
@@ -954,31 +955,26 @@ class MemoryClient:
             turns = []
             current_turn = []
 
-            # Process events in chronological order
-            for _, event in enumerate(events):
-                if "payload" in event and event["payload"]:
-                    for payload_item in event["payload"]:
-                        if "conversational" in payload_item:
-                            role = payload_item["conversational"].get("role")
+            for event in events:
+                if len(turns) >= k:
+                    break  # Only need last K turns
+                for payload_item in event.get("payload", []):
+                    if "conversational" in payload_item:
+                        role = payload_item["conversational"].get("role")
 
-                            # Start a new turn when we see a USER message and already have messages
-                            if role == Role.USER.value and current_turn:
-                                turns.append(current_turn)
-                                current_turn = []
+                        # Start new turn on USER message
+                        if role == Role.USER.value and current_turn:
+                            turns.append(current_turn)
+                            current_turn = []
 
-                            current_turn.append(payload_item["conversational"])
+                        current_turn.append(payload_item["conversational"])
 
             # Don't forget the last turn
             if current_turn:
                 turns.append(current_turn)
 
             # Return the last k turns
-            if len(turns) > k:
-                result = turns[-k:]  # Get last k turns
-            else:
-                result = turns
-
-            return result
+            return turns[:k] if len(turns) > k else turns
 
         except ClientError as e:
             logger.error("Failed to get last K turns: %s", e)
