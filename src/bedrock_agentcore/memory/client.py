@@ -38,6 +38,28 @@ logger = logging.getLogger(__name__)
 class MemoryClient:
     """High-level Bedrock AgentCore Memory client with essential operations."""
 
+    # AgentCore Memory data plane methods
+    _ALLOWED_GMDP_METHODS = {
+        "retrieve_memory_records",
+        "get_memory_record",
+        "delete_memory_record",
+        "list_memory_records",
+        "create_event",
+        "get_event",
+        "delete_event",
+        "list_events",
+    }
+
+    # AgentCore Memory control plane methods
+    _ALLOWED_GMCP_METHODS = {
+        "create_memory",
+        "get_memory",
+        "list_memories",
+        "update_memory",
+        "delete_memory",
+        "list_memory_strategies",
+    }
+
     def __init__(self, region_name: Optional[str] = None):
         """Initialize the Memory client."""
         self.region_name = region_name or boto3.Session().region_name or "us-west-2"
@@ -49,6 +71,49 @@ class MemoryClient:
             "Initialized MemoryClient for control plane: %s, data plane: %s",
             self.gmcp_client.meta.region_name,
             self.gmdp_client.meta.region_name,
+        )
+
+    def __getattr__(self, name: str):
+        """Dynamically forward method calls to the appropriate boto3 client.
+
+        This method enables access to all boto3 client methods without explicitly
+        defining them. Methods are looked up in the following order:
+        1. gmdp_client (bedrock-agentcore) - for data plane operations
+        2. gmcp_client (bedrock-agentcore-control) - for control plane operations
+
+        Args:
+            name: The method name being accessed
+
+        Returns:
+            A callable method from the appropriate boto3 client
+
+        Raises:
+            AttributeError: If the method doesn't exist on either client
+
+        Example:
+            # Access any boto3 method directly
+            client = MemoryClient()
+
+            # These calls are forwarded to the appropriate boto3 client
+            response = client.list_memory_records(memoryId="mem-123", namespace="test")
+            metadata = client.get_memory_metadata(memoryId="mem-123")
+        """
+        if name in self._ALLOWED_GMDP_METHODS and hasattr(self.gmdp_client, name):
+            method = getattr(self.gmdp_client, name)
+            logger.debug("Forwarding method '%s' to gmdp_client", name)
+            return method
+
+        if name in self._ALLOWED_GMCP_METHODS and hasattr(self.gmcp_client, name):
+            method = getattr(self.gmcp_client, name)
+            logger.debug("Forwarding method '%s' to gmcp_client", name)
+            return method
+
+        # Method not found on either client
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'. "
+            f"Method not found on gmdp_client or gmcp_client. "
+            f"Available methods can be found in the boto3 documentation for "
+            f"'bedrock-agentcore' and 'bedrock-agentcore-control' services."
         )
 
     def create_memory(
