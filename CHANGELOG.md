@@ -1,11 +1,21 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [0.1.3] - 2025-09-05
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Added
+- fix/observability logs improvement (#67) (78a5eee)
+- feat: add AgentCore Memory Session Manager with Strands Agents (#65) (7f866d9)
+- feat: add validation for browser live view URL expiry timeout (#57) (9653a1f)
 
-## [Unreleased]
+### Other Changes
+- feat(memory): Add passthrough for gmdp and gmcp operations for Memory (#66) (1a85ebe)
+- Improve serialization (#60) (00cc7ed)
+- feat(memory): add functionality to memory client (#61) (3093768)
+- add automated release workflows (#36) (045c34a)
+- chore: remove concurrency checks and simplify thread pool handling (#46) (824f43b)
+- fix(memory): fix last_k_turns (#62) (970317e)
+- use json to manage local workload identity and user id (#37) (5d2fa11)
+- fail github actions when coverage threshold is not met (#35) (a15ecb8)
 
 ## [0.1.2] - 2025-08-11
 
