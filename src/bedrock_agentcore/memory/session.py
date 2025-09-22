@@ -25,20 +25,102 @@ logger = logging.getLogger(__name__)
 
 
 class SessionManager:
-    """Represents a stateful conversation with a specific user (actor) in a session.
+    """Manages conversational sessions and memory operations for AWS Bedrock AgentCore.
 
-    This class encapsulates all context and handles DATA PLANE interactions.
+    The SessionManager provides a high-level interface for managing conversational AI sessions,
+    handling both short-term (conversational events) and long-term (semantic memory) storage.
+    It serves as the primary entry point for data plane operations with AWS Bedrock AgentCore
+    Memory services.
+
+    Key Capabilities:
+        - **Conversation Management**: Store, retrieve, and organize conversational turns
+        - **Memory Operations**: Search and manage long-term semantic memory records
+        - **Branch Support**: Create and manage conversation branches for alternative flows
+        - **LLM Integration**: Built-in callback pattern for LLM processing with memory context
+        - **Actor & Session Tracking**: Multi-user, multi-session conversation management
+
+    Usage Patterns:
+        1. **Simple Conversation**: Store user/assistant message pairs
+        2. **Memory-Enhanced Chat**: Retrieve relevant context before LLM processing
+        3. **Branched Conversations**: Fork conversations for alternative responses
+        4. **Multi-Modal**: Handle both text and binary data (images, files, etc.)
+
+    Example:
+        ```python
+        # Initialize manager
+        manager = SessionManager(memory_id="my-memory-123", region_name="us-east-1")
+
+        # Store a conversation turn
+        manager.add_turns(
+            actor_id="user-456",
+            session_id="session-789",
+            messages=[
+                ConversationalMessage("Hello!", MessageRole.USER),
+                ConversationalMessage("Hi there!", MessageRole.ASSISTANT)
+            ]
+        )
+
+        # Search long-term memory and process with LLM
+        def my_llm(user_input: str, memories: List[Dict]) -> str:
+            # Your LLM processing logic here
+            return "Response based on context"
+
+        memories, response, event = manager.process_turn_with_llm(
+            actor_id="user-456",
+            session_id="session-789",
+            user_input="What did we discuss?",
+            llm_callback=my_llm,
+            retrieval_namespace="support/facts/{sessionId}"
+        )
+        ```
+
+    Thread Safety:
+        This class is not thread-safe. Create separate instances for concurrent operations.
+
+    AWS Permissions Required:
+        - bedrock-agentcore:CreateEvent
+        - bedrock-agentcore:GetEvent
+        - bedrock-agentcore:ListEvents
+        - bedrock-agentcore:DeleteEvent
+        - bedrock-agentcore:RetrieveMemoryRecords
+        - bedrock-agentcore:ListMemoryRecords
+        - bedrock-agentcore:GetMemoryRecord
+        - bedrock-agentcore:DeleteMemoryRecord
+        - bedrock-agentcore:ListActors
+        - bedrock-agentcore:ListSessions
     """
 
-    def __init__(self, memory_id: str, region: str):
+    def __init__(
+        self, memory_id: str, region_name: Optional[str] = None, boto3_session: Optional[boto3.Session] = None
+    ):
         """Initialize a SessionManager instance.
 
         Args:
             memory_id: The memory identifier for this session manager.
-            region: AWS region for the bedrock-agentcore client.
+            region_name: AWS region for the bedrock-agentcore client. If not provided,
+                   will use the region from boto3_session or default session.
+            boto3_session: Optional boto3 Session to use. If provided and region_name
+                          parameter is also specified, validation will ensure they match.
+
+        Raises:
+            ValueError: If region_name parameter conflicts with boto3_session region.
         """
+        session = boto3_session if boto3_session else boto3.Session()
+        session_region = session.region_name
+
+        # Validate region consistency if both are provided
+        if region_name and boto3_session and session_region and region_name != session_region:
+            raise ValueError(
+                f"Region mismatch: provided region_name '{region_name}' does not match "
+                f"boto3_session region '{session_region}'. Please ensure both "
+                f"parameters specify the same region or omit the region_name parameter "
+                f"to use the session's region."
+            )
+
+        # Use provided region_name or fall back to session region
+        self.region_name = region_name or session_region
         self._memory_id = memory_id
-        self._data_plane_client = boto3.client("bedrock-agentcore", region_name=region)
+        self._data_plane_client = session.client("bedrock-agentcore", region_name=self.region_name)
 
         # AgentCore Memory data plane methods
         self._ALLOWED_DATA_PLANE_METHODS = {
@@ -353,8 +435,12 @@ class SessionManager:
         try:
             all_events: List[Event] = []
             next_token = None
+            max_iterations = 1000  # Safety limit to prevent infinite loops
 
-            while len(all_events) < max_results:
+            iteration_count = 0
+            while len(all_events) < max_results and iteration_count < max_iterations:
+                iteration_count += 1
+
                 params = {
                     "memoryId": self._memory_id,
                     "actorId": actor_id,
@@ -373,11 +459,20 @@ class SessionManager:
                 response = self._data_plane_client.list_events(**params)
 
                 events = response.get("events", [])
+
+                # If no events returned, break to prevent infinite loop
+                if not events:
+                    logger.debug("No more events returned, ending pagination")
+                    break
+
                 all_events.extend([Event(event) for event in events])
 
                 next_token = response.get("nextToken")
                 if not next_token or len(all_events) >= max_results:
                     break
+
+            if iteration_count >= max_iterations:
+                logger.warning("Reached maximum iteration limit (%d) in list_events pagination", max_iterations)
 
             logger.info("Retrieved total of %d events", len(all_events))
             return all_events[:max_results]
@@ -400,19 +495,33 @@ class SessionManager:
             # Get all events - need to handle pagination for complete list
             all_events = []
             next_token = None
+            max_iterations = 1000  # Safety limit to prevent infinite loops
 
-            while True:
+            iteration_count = 0
+            while iteration_count < max_iterations:
+                iteration_count += 1
+
                 params = {"memoryId": self._memory_id, "actorId": actor_id, "sessionId": session_id, "maxResults": 100}
 
                 if next_token:
                     params["nextToken"] = next_token
 
                 response = self._data_plane_client.list_events(**params)
-                all_events.extend(response.get("events", []))
+                events = response.get("events", [])
+
+                # If no events returned, break to prevent infinite loop
+                if not events:
+                    logger.debug("No more events returned, ending pagination in list_branches")
+                    break
+
+                all_events.extend(events)
 
                 next_token = response.get("nextToken")
                 if not next_token:
                     break
+
+            if iteration_count >= max_iterations:
+                logger.warning("Reached maximum iteration limit (%d) in list_branches pagination", max_iterations)
 
             branches = {}
             main_branch_events = []
@@ -477,19 +586,35 @@ class SessionManager:
             # Get all events - need to handle pagination for complete list
             all_events = []
             next_token = None
+            max_iterations = 1000  # Safety limit to prevent infinite loops
 
-            while True:
+            iteration_count = 0
+            while iteration_count < max_iterations:
+                iteration_count += 1
+
                 params = {"memoryId": self._memory_id, "actorId": actor_id, "sessionId": session_id, "maxResults": 100}
 
                 if next_token:
                     params["nextToken"] = next_token
 
                 response = self._data_plane_client.list_events(**params)
-                all_events.extend(response.get("events", []))
+                events = response.get("events", [])
+
+                # If no events returned, break to prevent infinite loop
+                if not events:
+                    logger.debug("No more events returned, ending pagination in get_conversation_tree")
+                    break
+
+                all_events.extend(events)
 
                 next_token = response.get("nextToken")
                 if not next_token:
                     break
+
+            if iteration_count >= max_iterations:
+                logger.warning(
+                    "Reached maximum iteration limit (%d) in get_conversation_tree pagination", max_iterations
+                )
 
             # Build tree structure
             tree = {"session_id": session_id, "actor_id": actor_id, "main_branch": {"events": [], "branches": {}}}
@@ -824,11 +949,11 @@ class Session(DictWrapper):
     def add_turns(
         self,
         messages: List[Union[ConversationalMessage, BlobMessage]],
-        branch_name: Optional[Dict[str, str]] = None,
+        branch: Optional[Dict[str, str]] = None,
         event_timestamp: Optional[datetime] = None,
     ) -> Event:
         """Delegates to manager.add_turns."""
-        return self._manager.add_turns(self._actor_id, self._session_id, messages, event_timestamp, branch_name)
+        return self._manager.add_turns(self._actor_id, self._session_id, messages, event_timestamp, branch)
 
     def fork_conversation(
         self,
@@ -954,6 +1079,6 @@ class Actor(DictWrapper):
             "actorId": self._id,
         }
 
-    def list_sessions(self) -> List[Session]:
+    def list_sessions(self) -> List[SessionSummary]:
         """Delegates to _session_manager.list_actor_sessions."""
         return self._session_manager.list_actor_sessions(self._id)

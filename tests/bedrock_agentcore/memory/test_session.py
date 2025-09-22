@@ -28,23 +28,30 @@ class TestSessionManager:
 
     def test_session_manager_initialization(self):
         """Test SessionManager initialization."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
-            assert manager._memory_id == "test-memory-123"
+            assert manager._memory_id == "testMemory-1234567890"
+            assert manager.region_name == "us-west-2"
             assert manager._data_plane_client == mock_client_instance
-            mock_boto_client.assert_called_once_with("bedrock-agentcore", region_name="us-west-2")
+            mock_session.client.assert_called_once_with("bedrock-agentcore", region_name="us-west-2")
 
     def test_getattr_allowed_method(self):
         """Test __getattr__ forwards allowed data plane methods."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test accessing an allowed method
             mock_method = MagicMock()
@@ -55,11 +62,14 @@ class TestSessionManager:
 
     def test_getattr_disallowed_method(self):
         """Test __getattr__ raises AttributeError for disallowed methods."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test accessing a disallowed method
             with pytest.raises(AttributeError) as exc_info:
@@ -70,8 +80,14 @@ class TestSessionManager:
 
     def test_event_sort_key_normal_event_id(self):
         """Test _event_sort_key with normal eventId format."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
+            mock_client_instance = MagicMock()
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
+
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             event = {
                 "eventId": "1640995200000#abc123",
@@ -83,8 +99,14 @@ class TestSessionManager:
 
     def test_event_sort_key_invalid_event_id_with_timestamp(self):
         """Test _event_sort_key with invalid eventId but valid timestamp."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
+            mock_client_instance = MagicMock()
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
+
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             timestamp = datetime(2022, 1, 1, 12, 30, 45, tzinfo=timezone.utc)
             event = {"eventId": "invalid-format", "eventTimestamp": timestamp}
@@ -95,8 +117,14 @@ class TestSessionManager:
 
     def test_event_sort_key_string_timestamp(self):
         """Test _event_sort_key with string timestamp."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
+            mock_client_instance = MagicMock()
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
+
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             event = {"eventId": "invalid-format", "eventTimestamp": "2022-01-01T12:30:45Z"}
 
@@ -107,8 +135,14 @@ class TestSessionManager:
 
     def test_event_sort_key_no_timestamp(self):
         """Test _event_sort_key with no timestamp."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
+            mock_client_instance = MagicMock()
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
+
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             event = {"eventId": "invalid-format"}
 
@@ -117,17 +151,20 @@ class TestSessionManager:
 
     def test_process_turn_with_llm_success(self):
         """Test process_turn_with_llm successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock search_long_term_memory
             mock_memories = [{"content": {"text": "Previous context"}, "memoryRecordId": "rec-123"}]
             with patch.object(manager, "search_long_term_memory", return_value=mock_memories):
                 # Mock add_turns
-                mock_event = {"eventId": "event-123", "memoryId": "test-memory-123"}
+                mock_event = {"eventId": "event-123", "memoryId": "testMemory-1234567890"}
                 with patch.object(manager, "add_turns", return_value=Event(mock_event)):
                     # Define LLM callback
                     def mock_llm_callback(user_input: str, memories: List[Dict[str, Any]]) -> str:
@@ -149,14 +186,17 @@ class TestSessionManager:
 
     def test_process_turn_with_llm_no_retrieval(self):
         """Test process_turn_with_llm without memory retrieval."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock add_turns
-            mock_event = {"eventId": "event-123", "memoryId": "test-memory-123"}
+            mock_event = {"eventId": "event-123", "memoryId": "testMemory-1234567890"}
             with patch.object(manager, "add_turns", return_value=Event(mock_event)):
                 # Define LLM callback
                 def mock_llm_callback(user_input: str, memories: List[Dict[str, Any]]) -> str:
@@ -173,11 +213,14 @@ class TestSessionManager:
 
     def test_process_turn_with_llm_callback_error(self):
         """Test process_turn_with_llm with LLM callback error."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Define failing LLM callback
             def failing_llm_callback(user_input: str, memories: List[Dict[str, Any]]) -> str:
@@ -193,11 +236,14 @@ class TestSessionManager:
 
     def test_process_turn_with_llm_invalid_callback_return(self):
         """Test process_turn_with_llm with invalid callback return type."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Define callback that returns non-string
             def invalid_llm_callback(user_input: str, memories: List[Dict[str, Any]]) -> int:
@@ -216,14 +262,17 @@ class TestSessionManager:
 
     def test_add_turns_success(self):
         """Test add_turns successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock create_event response
-            mock_response = {"event": {"eventId": "turn-event-123", "memoryId": "test-memory-123"}}
+            mock_response = {"event": {"eventId": "turn-event-123", "memoryId": "testMemory-1234567890"}}
             mock_client_instance.create_event.return_value = mock_response
 
             messages = [
@@ -243,8 +292,14 @@ class TestSessionManager:
 
     def test_add_turns_empty_messages(self):
         """Test add_turns with empty messages raises ValueError."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
+            mock_client_instance = MagicMock()
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
+
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             with pytest.raises(ValueError) as exc_info:
                 manager.add_turns(actor_id="user-123", session_id="session-456", messages=[])
@@ -253,14 +308,17 @@ class TestSessionManager:
 
     def test_add_turns_single_element_tuple_as_blob(self):
         """Test add_turns treats single-element tuple as blob object."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock create_event response
-            mock_response = {"event": {"eventId": "blob-event-123", "memoryId": "test-memory-123"}}
+            mock_response = {"event": {"eventId": "blob-event-123", "memoryId": "testMemory-1234567890"}}
             mock_client_instance.create_event.return_value = mock_response
 
             # Single-element tuple should be treated as blob using BlobMessage
@@ -282,8 +340,14 @@ class TestSessionManager:
 
     def test_add_turns_invalid_role(self):
         """Test add_turns with invalid role."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
+            mock_client_instance = MagicMock()
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
+
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             with pytest.raises(ValueError) as exc_info:
                 manager.add_turns(
@@ -296,14 +360,17 @@ class TestSessionManager:
 
     def test_add_turns_with_branch(self):
         """Test add_turns with branch parameter."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock create_event response
-            mock_response = {"event": {"eventId": "branch-turn-event-123", "memoryId": "test-memory-123"}}
+            mock_response = {"event": {"eventId": "branch-turn-event-123", "memoryId": "testMemory-1234567890"}}
             mock_client_instance.create_event.return_value = mock_response
 
             branch = {"name": "test-branch", "rootEventId": "event-root-123"}
@@ -318,11 +385,14 @@ class TestSessionManager:
 
     def test_add_turns_client_error(self):
         """Test add_turns with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid parameters"}}
@@ -337,14 +407,17 @@ class TestSessionManager:
 
     def test_fork_conversation_success(self):
         """Test fork_conversation successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock add_turns
-            mock_event = {"eventId": "fork-event-123", "memoryId": "test-memory-123"}
+            mock_event = {"eventId": "fork-event-123", "memoryId": "testMemory-1234567890"}
             with patch.object(manager, "add_turns", return_value=Event(mock_event)) as mock_add_turns:
                 result = manager.fork_conversation(
                     actor_id="user-123",
@@ -364,11 +437,14 @@ class TestSessionManager:
 
     def test_fork_conversation_client_error(self):
         """Test fork_conversation with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock add_turns to raise ClientError
             with patch.object(
@@ -389,11 +465,14 @@ class TestSessionManager:
 
     def test_list_events_success(self):
         """Test list_events successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock list_events response
             mock_events = [
@@ -411,11 +490,14 @@ class TestSessionManager:
 
     def test_list_events_with_pagination(self):
         """Test list_events with pagination."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginated responses
             first_batch = [{"eventId": f"event-{i}", "eventTimestamp": datetime.now()} for i in range(100)]
@@ -433,11 +515,14 @@ class TestSessionManager:
 
     def test_list_events_with_branch_filter(self):
         """Test list_events with branch filtering."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock response
             mock_events = [{"eventId": "branch-event-1", "eventTimestamp": datetime.now()}]
@@ -457,11 +542,14 @@ class TestSessionManager:
 
     def test_list_events_main_branch_no_filter(self):
         """Test list_events with main branch doesn't apply filter."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock response
             mock_events = [{"eventId": "main-event-1", "eventTimestamp": datetime.now()}]
@@ -477,11 +565,14 @@ class TestSessionManager:
 
     def test_list_events_client_error(self):
         """Test list_events with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid parameters"}}
@@ -492,11 +583,14 @@ class TestSessionManager:
 
     def test_list_branches_success(self):
         """Test list_branches successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with branches
             mock_events = [
@@ -526,11 +620,14 @@ class TestSessionManager:
 
     def test_list_branches_no_main_events(self):
         """Test list_branches with no main branch events."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with only branch events
             mock_events = [
@@ -549,11 +646,14 @@ class TestSessionManager:
 
     def test_list_branches_client_error(self):
         """Test list_branches with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid parameters"}}
@@ -564,11 +664,14 @@ class TestSessionManager:
 
     def test_get_conversation_tree_success(self):
         """Test get_conversation_tree successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with branches and payloads
             mock_events = [
@@ -597,11 +700,14 @@ class TestSessionManager:
 
     def test_get_conversation_tree_client_error(self):
         """Test get_conversation_tree with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid parameters"}}
@@ -612,11 +718,14 @@ class TestSessionManager:
 
     def test_merge_branch_context_success(self):
         """Test merge_branch_context successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock list_events (which is what merge_branch_context actually calls)
             mock_events = [
@@ -645,11 +754,14 @@ class TestSessionManager:
 
     def test_get_last_k_turns_success(self):
         """Test get_last_k_turns successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock list_events
             mock_events = [
@@ -687,11 +799,14 @@ class TestSessionManager:
 
     def test_get_last_k_turns_empty_events(self):
         """Test get_last_k_turns with no events."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock empty list_events
             with patch.object(manager, "list_events", return_value=[]):
@@ -701,11 +816,14 @@ class TestSessionManager:
 
     def test_get_last_k_turns_client_error(self):
         """Test get_last_k_turns with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock list_events to raise ClientError
             with patch.object(
@@ -720,17 +838,20 @@ class TestSessionManager:
 
     def test_get_event_success(self):
         """Test get_event successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock get_event response
             mock_response = {
                 "event": {
                     "eventId": "event-123",
-                    "memoryId": "test-memory-123",
+                    "memoryId": "testMemory-1234567890",
                     "actorId": "user-123",
                     "sessionId": "session-456",
                 }
@@ -741,15 +862,18 @@ class TestSessionManager:
 
             assert isinstance(result, Event)
             assert result["eventId"] == "event-123"
-            assert result["memoryId"] == "test-memory-123"
+            assert result["memoryId"] == "testMemory-1234567890"
 
     def test_get_event_client_error(self):
         """Test get_event with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Event not found"}}
@@ -760,27 +884,33 @@ class TestSessionManager:
 
     def test_delete_event_success(self):
         """Test delete_event successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test delete_event (no return value expected)
             manager.delete_event(actor_id="user-123", session_id="session-456", event_id="event-123")
 
             # Verify API call
             mock_client_instance.delete_event.assert_called_once_with(
-                memoryId="test-memory-123", actorId="user-123", sessionId="session-456", eventId="event-123"
+                memoryId="testMemory-1234567890", actorId="user-123", sessionId="session-456", eventId="event-123"
             )
 
     def test_delete_event_client_error(self):
         """Test delete_event with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Event not found"}}
@@ -791,11 +921,14 @@ class TestSessionManager:
 
     def test_search_long_term_memory_success(self):
         """Test search_long_term_memory successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock retrieve_memory_records response
             mock_response = {
@@ -815,18 +948,21 @@ class TestSessionManager:
 
             # Verify API call
             call_args = mock_client_instance.retrieve_memory_records.call_args[1]
-            assert call_args["memoryId"] == "test-memory-123"
+            assert call_args["memoryId"] == "testMemory-1234567890"
             assert call_args["searchCriteria"]["searchQuery"] == "test query"
             assert call_args["searchCriteria"]["topK"] == 5
             assert call_args["namespace"] == "test/namespace"
 
     def test_search_long_term_memory_with_strategy(self):
         """Test search_long_term_memory with strategy_id."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock retrieve_memory_records response
             mock_response = {"memoryRecordSummaries": []}
@@ -844,11 +980,14 @@ class TestSessionManager:
 
     def test_search_long_term_memory_client_error(self):
         """Test search_long_term_memory with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid query"}}
@@ -861,11 +1000,14 @@ class TestSessionManager:
 
     def test_list_long_term_memory_records_success(self):
         """Test list_long_term_memory_records successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator
             mock_paginator = MagicMock()
@@ -881,11 +1023,14 @@ class TestSessionManager:
 
     def test_list_long_term_memory_records_with_strategy(self):
         """Test list_long_term_memory_records with strategy_id."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator
             mock_paginator = MagicMock()
@@ -904,11 +1049,14 @@ class TestSessionManager:
 
     def test_list_long_term_memory_records_client_error(self):
         """Test list_long_term_memory_records with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator to raise ClientError
             mock_paginator = MagicMock()
@@ -922,11 +1070,14 @@ class TestSessionManager:
 
     def test_list_actors_success(self):
         """Test list_actors successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator
             mock_paginator = MagicMock()
@@ -940,11 +1091,14 @@ class TestSessionManager:
 
     def test_list_actors_client_error(self):
         """Test list_actors with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator to raise ClientError
             mock_paginator = MagicMock()
@@ -958,11 +1112,14 @@ class TestSessionManager:
 
     def test_get_memory_record_success(self):
         """Test get_memory_record successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock get_memory_record response
             mock_response = {"memoryRecord": {"memoryRecordId": "rec-123", "content": {"text": "Memory content"}}}
@@ -975,11 +1132,14 @@ class TestSessionManager:
 
     def test_get_memory_record_client_error(self):
         """Test get_memory_record with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Record not found"}}
@@ -990,27 +1150,33 @@ class TestSessionManager:
 
     def test_delete_memory_record_success(self):
         """Test delete_memory_record successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test delete_memory_record (no return value expected)
             manager.delete_memory_record(record_id="rec-123")
 
             # Verify API call
             mock_client_instance.delete_memory_record.assert_called_once_with(
-                memoryId="test-memory-123", memoryRecordId="rec-123"
+                memoryId="testMemory-1234567890", memoryRecordId="rec-123"
             )
 
     def test_delete_memory_record_client_error(self):
         """Test delete_memory_record with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ResourceNotFoundException", "Message": "Record not found"}}
@@ -1021,11 +1187,14 @@ class TestSessionManager:
 
     def test_list_actor_sessions_success(self):
         """Test list_actor_sessions successful execution."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator
             mock_paginator = MagicMock()
@@ -1041,11 +1210,14 @@ class TestSessionManager:
 
     def test_list_actor_sessions_client_error(self):
         """Test list_actor_sessions with ClientError."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator to raise ClientError
             mock_paginator = MagicMock()
@@ -1059,8 +1231,8 @@ class TestSessionManager:
 
     def test_create_session_success(self):
         """Test create_session successful execution."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test with provided session_id
             session = manager.create_session(actor_id="user-123", session_id="session-456")
@@ -1068,12 +1240,12 @@ class TestSessionManager:
             assert isinstance(session, Session)
             assert session._actor_id == "user-123"
             assert session._session_id == "session-456"
-            assert session._memory_id == "test-memory-123"
+            assert session._memory_id == "testMemory-1234567890"
 
     def test_create_session_auto_generate_id(self):
         """Test create_session with auto-generated session_id."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test without session_id (should auto-generate)
             with patch("uuid.uuid4", return_value=uuid.UUID("12345678-1234-5678-1234-567812345678")):
@@ -1089,28 +1261,28 @@ class TestSession:
 
     def test_session_initialization(self):
         """Test Session initialization."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
-            assert session._memory_id == "test-memory-123"
+            assert session._memory_id == "testMemory-1234567890"
             assert session._actor_id == "user-123"
             assert session._session_id == "session-456"
             assert session._manager == manager
 
             # Test dictionary representation
-            assert session["memoryId"] == "test-memory-123"
+            assert session["memoryId"] == "testMemory-1234567890"
             assert session["actorId"] == "user-123"
             assert session["sessionId"] == "session-456"
 
     def test_session_add_turns_delegation(self):
         """Test Session.add_turns delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1125,10 +1297,10 @@ class TestSession:
 
     def test_session_fork_conversation_delegation(self):
         """Test Session.fork_conversation delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1152,10 +1324,10 @@ class TestSession:
 
     def test_session_create_blob_event_delegation(self):
         """Test Session can create blob events using add_turns."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1169,10 +1341,10 @@ class TestSession:
 
     def test_session_process_turn_with_llm_delegation(self):
         """Test Session.process_turn_with_llm delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1195,10 +1367,10 @@ class TestSession:
 
     def test_session_get_last_k_turns_delegation(self):
         """Test Session.get_last_k_turns delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1211,10 +1383,10 @@ class TestSession:
 
     def test_session_get_event_delegation(self):
         """Test Session.get_event delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1227,10 +1399,10 @@ class TestSession:
 
     def test_session_delete_event_delegation(self):
         """Test Session.delete_event delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1241,10 +1413,10 @@ class TestSession:
 
     def test_session_get_memory_record_delegation(self):
         """Test Session.get_memory_record delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1257,10 +1429,10 @@ class TestSession:
 
     def test_session_delete_memory_record_delegation(self):
         """Test Session.delete_memory_record delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1271,10 +1443,10 @@ class TestSession:
 
     def test_session_search_long_term_memory_delegation(self):
         """Test Session.search_long_term_memory delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1287,10 +1459,10 @@ class TestSession:
 
     def test_session_list_long_term_memory_records_delegation(self):
         """Test Session.list_long_term_memory_records delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1303,10 +1475,10 @@ class TestSession:
 
     def test_session_list_actors_delegation(self):
         """Test Session.list_actors delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1319,10 +1491,10 @@ class TestSession:
 
     def test_session_list_events_delegation(self):
         """Test Session.list_events delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1342,10 +1514,10 @@ class TestSession:
 
     def test_session_list_branches_delegation(self):
         """Test Session.list_branches delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1358,10 +1530,10 @@ class TestSession:
 
     def test_session_get_conversation_tree_delegation(self):
         """Test Session.get_conversation_tree delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1374,10 +1546,10 @@ class TestSession:
 
     def test_session_merge_branch_context_delegation(self):
         """Test Session.merge_branch_context delegates to manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method
@@ -1390,10 +1562,10 @@ class TestSession:
 
     def test_session_get_actor(self):
         """Test Session.get_actor returns Actor instance."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             actor = session.get_actor()
@@ -1408,8 +1580,8 @@ class TestActor:
 
     def test_actor_initialization(self):
         """Test Actor initialization."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             actor = Actor(actor_id="user-123", session_manager=manager)
 
             assert actor._id == "user-123"
@@ -1420,8 +1592,8 @@ class TestActor:
 
     def test_actor_list_sessions_delegation(self):
         """Test Actor.list_sessions delegates to session manager."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             actor = Actor(actor_id="user-123", session_manager=manager)
 
             # Mock manager method
@@ -1438,8 +1610,8 @@ class TestEdgeCases:
 
     def test_event_sort_key_edge_cases(self):
         """Test _event_sort_key with various edge cases."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test with empty eventId
             event = {"eventId": "", "eventTimestamp": datetime.now()}
@@ -1460,11 +1632,14 @@ class TestEdgeCases:
 
     def test_add_turns_custom_timestamp(self):
         """Test add_turns with custom timestamp."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock create_event response
             mock_response = {"event": {"eventId": "event-123"}}
@@ -1484,11 +1659,11 @@ class TestEdgeCases:
 
     def test_process_turn_with_llm_custom_retrieval_query(self):
         """Test process_turn_with_llm with custom retrieval query."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock search_long_term_memory
             mock_memories = []
@@ -1517,11 +1692,14 @@ class TestEdgeCases:
 
     def test_list_events_max_results_respected(self):
         """Test list_events respects max_results parameter."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock response with more events than max_results
             large_batch = [{"eventId": f"event-{i}", "eventTimestamp": datetime.now()} for i in range(200)]
@@ -1534,11 +1712,14 @@ class TestEdgeCases:
 
     def test_get_conversation_tree_missing_root_event_id(self):
         """Test get_conversation_tree handles missing rootEventId gracefully."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with branch missing rootEventId
             mock_events = [
@@ -1559,11 +1740,11 @@ class TestEdgeCases:
 
     def test_merge_branch_context_sorting(self):
         """Test merge_branch_context sorts messages by timestamp."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with out-of-order timestamps
             mock_events = [
@@ -1590,11 +1771,11 @@ class TestEdgeCases:
 
     def test_get_last_k_turns_turn_grouping(self):
         """Test get_last_k_turns properly groups messages into turns."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with multiple turns
             mock_events = [
@@ -1622,10 +1803,10 @@ class TestEdgeCases:
 
     def test_session_delegation_with_optional_parameters(self):
         """Test Session methods properly pass optional parameters."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Test add_turns with all optional parameters
@@ -1636,7 +1817,7 @@ class TestEdgeCases:
 
                 session.add_turns(
                     messages=[ConversationalMessage("Hello", MessageRole.USER)],
-                    branch_name=branch,
+                    branch=branch,
                     event_timestamp=custom_timestamp,
                 )
 
@@ -1650,11 +1831,14 @@ class TestEdgeCases:
 
     def test_comprehensive_error_coverage(self):
         """Test comprehensive error handling across different methods."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test various ClientError scenarios
             error_scenarios = [
@@ -1681,11 +1865,11 @@ class TestEdgeCases:
 
     def test_getattr_method_not_in_allowed_but_exists_on_client(self):
         """Test __getattr__ when method exists on client but not in allowed methods."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock hasattr to return True for a method not in allowed list
             with patch("builtins.hasattr", return_value=True):
@@ -1696,8 +1880,8 @@ class TestEdgeCases:
 
     def test_event_sort_key_attribute_error_in_timestamp_parsing(self):
         """Test _event_sort_key with AttributeError in timestamp parsing."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test with eventId that causes ValueError and timestamp that causes AttributeError
             event = {"eventId": "invalid-format", "eventTimestamp": None}
@@ -1706,11 +1890,14 @@ class TestEdgeCases:
 
     def test_search_long_term_memory_without_strategy_id(self):
         """Test search_long_term_memory without strategy_id to cover missing branch."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock retrieve_memory_records response
             mock_response = {"memoryRecordSummaries": []}
@@ -1726,11 +1913,14 @@ class TestEdgeCases:
 
     def test_list_long_term_memory_records_without_strategy_id(self):
         """Test list_long_term_memory_records without strategy_id to cover missing branch."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator
             mock_paginator = MagicMock()
@@ -1747,11 +1937,14 @@ class TestEdgeCases:
 
     def test_list_events_no_next_token_break(self):
         """Test list_events when no next_token is returned to cover break condition."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock response without nextToken
             mock_events = [{"eventId": "event-1", "eventTimestamp": datetime.now()}]
@@ -1764,11 +1957,14 @@ class TestEdgeCases:
 
     def test_list_events_max_results_break(self):
         """Test list_events when max_results is reached to cover break condition."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock response with exactly max_results events
             mock_events = [{"eventId": f"event-{i}", "eventTimestamp": datetime.now()} for i in range(5)]
@@ -1782,11 +1978,14 @@ class TestEdgeCases:
 
     def test_get_conversation_tree_no_payload(self):
         """Test get_conversation_tree with events that have no payload."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events without payload
             mock_events = [
@@ -1802,11 +2001,14 @@ class TestEdgeCases:
 
     def test_get_conversation_tree_no_conversational_payload(self):
         """Test get_conversation_tree with payload that has no conversational items."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with non-conversational payload
             mock_events = [
@@ -1826,11 +2028,11 @@ class TestEdgeCases:
 
     def test_merge_branch_context_no_payload(self):
         """Test merge_branch_context with events that have no payload."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events without payload
             mock_events = [
@@ -1845,11 +2047,11 @@ class TestEdgeCases:
 
     def test_merge_branch_context_no_conversational_payload(self):
         """Test merge_branch_context with payload that has no conversational items."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with non-conversational payload
             mock_events = [
@@ -1868,11 +2070,11 @@ class TestEdgeCases:
 
     def test_get_last_k_turns_no_conversational_payload(self):
         """Test get_last_k_turns with payload that has no conversational items."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with non-conversational payload
             mock_events = [
@@ -1891,11 +2093,11 @@ class TestEdgeCases:
 
     def test_get_last_k_turns_break_on_k_limit(self):
         """Test get_last_k_turns breaks when k limit is reached."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock many events to test k limit
             mock_events = []
@@ -1918,8 +2120,8 @@ class TestEdgeCases:
 
     def test_actor_list_sessions_return_type(self):
         """Test Actor.list_sessions returns correct type."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             actor = Actor(actor_id="user-123", session_manager=manager)
 
             # Mock manager method to return SessionSummary objects
@@ -1934,8 +2136,8 @@ class TestEdgeCases:
 
     def test_event_sort_key_empty_event_id_no_timestamp(self):
         """Test _event_sort_key with empty eventId and no timestamp."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             event = {"eventId": ""}
             sort_key = manager._event_sort_key(event)
@@ -1943,8 +2145,8 @@ class TestEdgeCases:
 
     def test_event_sort_key_invalid_timestamp_string(self):
         """Test _event_sort_key with invalid timestamp string."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             event = {"eventId": "invalid", "eventTimestamp": "invalid-date-format"}
             sort_key = manager._event_sort_key(event)
@@ -1952,8 +2154,8 @@ class TestEdgeCases:
 
     def test_event_sort_key_type_error_in_head_parsing(self):
         """Test _event_sort_key with TypeError in head parsing."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test with eventId that causes ValueError when converting to int
             event = {"eventId": "not-a-number#suffix"}
@@ -1962,8 +2164,8 @@ class TestEdgeCases:
 
     def test_event_sort_key_fallback_to_string_timestamp(self):
         """Test _event_sort_key fallback to string timestamp when head parsing fails."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             event = {"eventId": "invalid-format", "eventTimestamp": "2023-01-01T12:00:00Z"}
             sort_key = manager._event_sort_key(event)
@@ -1973,11 +2175,11 @@ class TestEdgeCases:
 
     def test_getattr_method_exists_but_not_allowed(self):
         """Test __getattr__ when method exists on client but not in allowed methods."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock a method that exists on client but is not in allowed methods
             mock_client_instance.some_other_method = MagicMock()
@@ -1989,10 +2191,10 @@ class TestEdgeCases:
 
     def test_session_add_turns_parameter_order(self):
         """Test Session.add_turns passes parameters in correct order."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
-                memory_id="test-memory-123", actor_id="user-123", session_id="session-456", manager=manager
+                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
             )
 
             # Mock manager method to verify parameter order
@@ -2003,7 +2205,7 @@ class TestEdgeCases:
 
                 session.add_turns(
                     messages=[ConversationalMessage("Hello", MessageRole.USER)],
-                    branch_name=branch,
+                    branch=branch,
                     event_timestamp=custom_timestamp,
                 )
 
@@ -2022,11 +2224,11 @@ class TestAdditionalCoverage:
 
     def test_getattr_method_not_in_allowed_and_not_on_client(self):
         """Test __getattr__ when method doesn't exist on client and not in allowed methods."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock hasattr to return False (method doesn't exist on client)
             with patch("builtins.hasattr", return_value=False):
@@ -2037,8 +2239,8 @@ class TestAdditionalCoverage:
 
     def test_event_sort_key_with_none_timestamp_fallback(self):
         """Test _event_sort_key with None timestamp in fallback path."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test with invalid eventId and None timestamp
             event = {"eventId": "invalid-format", "eventTimestamp": None}
@@ -2047,11 +2249,11 @@ class TestAdditionalCoverage:
 
     def test_process_turn_with_llm_with_retrieval_query_fallback(self):
         """Test process_turn_with_llm uses user_input when retrieval_query is None."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock search_long_term_memory
             mock_memories = []
@@ -2078,14 +2280,17 @@ class TestAdditionalCoverage:
 
     def test_add_turns_with_custom_timestamp(self):
         """Test add_turns with custom timestamp."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock create_event response
-            mock_response = {"event": {"eventId": "turn-event-123", "memoryId": "test-memory-123"}}
+            mock_response = {"event": {"eventId": "turn-event-123", "memoryId": "testMemory-1234567890"}}
             mock_client_instance.create_event.return_value = mock_response
 
             custom_timestamp = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -2104,11 +2309,14 @@ class TestAdditionalCoverage:
 
     def test_list_events_with_next_token(self):
         """Test list_events with next_token parameter."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginated responses
             first_batch = [{"eventId": "event-1", "eventTimestamp": datetime.now()}]
@@ -2135,7 +2343,7 @@ class TestAddTurnsWithDataClasses:
     @pytest.fixture
     def session_manager(self):
         """Create a SessionManager instance for testing."""
-        with patch("boto3.client"):
+        with patch("boto3.Session"):
             manager = SessionManager("test-memory-id", "us-east-1")
             manager._data_plane_client = Mock()
             return manager
@@ -2322,8 +2530,8 @@ class TestAddTurnsWithDataClasses:
 
     def test_event_sort_key_empty_event_id_with_string_timestamp(self):
         """Test _event_sort_key with empty eventId and string timestamp - covers lines 112-116."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test with empty eventId and string timestamp (covers lines 112-116)
             event = {"eventId": "", "eventTimestamp": "2023-01-01T12:00:00Z"}
@@ -2334,8 +2542,8 @@ class TestAddTurnsWithDataClasses:
 
     def test_event_sort_key_empty_event_id_with_invalid_string_timestamp(self):
         """Test _event_sort_key with empty eventId and invalid string timestamp - covers lines 115-116."""
-        with patch("boto3.client"):
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+        with patch("boto3.Session"):
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Test with empty eventId and invalid string timestamp (covers exception handling)
             event = {"eventId": "", "eventTimestamp": "invalid-timestamp-format"}
@@ -2345,11 +2553,11 @@ class TestAddTurnsWithDataClasses:
 
     def test_getattr_method_exists_on_client_but_not_allowed(self):
         """Test __getattr__ when method exists on client but not in allowed methods - covers lines 112-116."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock a method that exists on client but is not in allowed methods
             mock_client_instance.some_control_plane_method = MagicMock()
@@ -2363,11 +2571,14 @@ class TestAddTurnsWithDataClasses:
 
     def test_get_conversation_tree_branch_without_root_event_id(self):
         """Test get_conversation_tree with branch missing rootEventId - covers line 405->430."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with branch that has no rootEventId field
             mock_events = [
@@ -2388,11 +2599,14 @@ class TestAddTurnsWithDataClasses:
 
     def test_search_long_term_memory_info_logging_on_client_error(self):
         """Test search_long_term_memory logs info on ClientError - covers line 481."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock ClientError
             error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid query"}}
@@ -2409,11 +2623,14 @@ class TestAddTurnsWithDataClasses:
 
     def test_list_long_term_memory_records_multiple_pages(self):
         """Test list_long_term_memory_records with multiple pages - covers line 533."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginator with multiple pages
             mock_paginator = MagicMock()
@@ -2436,11 +2653,11 @@ class TestAddTurnsWithDataClasses:
 
     def test_get_last_k_turns_with_include_branches_true(self):
         """Test get_last_k_turns with include_branches=True - covers line 539->529."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock list_events
             mock_events = [
@@ -2474,11 +2691,11 @@ class TestAddTurnsWithDataClasses:
 
     def test_merge_branch_context_with_missing_content_fields(self):
         """Test merge_branch_context with events missing content fields - covers line 563->566."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock events with missing content fields
             mock_events = [
@@ -2519,11 +2736,14 @@ class TestAddTurnsWithDataClasses:
 
     def test_getattr_debug_logging(self):
         """Test __getattr__ debug logging when method is found."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock an allowed method
             mock_method = MagicMock()
@@ -2540,11 +2760,11 @@ class TestAddTurnsWithDataClasses:
 
     def test_process_turn_with_llm_no_retrieval_namespace(self):
         """Test process_turn_with_llm without retrieval_namespace (no memory retrieval)."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_boto_client:
             mock_client_instance = MagicMock()
             mock_boto_client.return_value = mock_client_instance
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock add_turns
             mock_event = {"eventId": "event-123"}
@@ -2571,14 +2791,17 @@ class TestAddTurnsWithDataClasses:
 
     def test_add_turns_default_timestamp(self):
         """Test add_turns uses default timestamp when none provided."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock create_event response
-            mock_response = {"event": {"eventId": "turn-event-123", "memoryId": "test-memory-123"}}
+            mock_response = {"event": {"eventId": "turn-event-123", "memoryId": "testMemory-1234567890"}}
             mock_client_instance.create_event.return_value = mock_response
 
             messages = [ConversationalMessage("Hello", MessageRole.USER)]
@@ -2605,11 +2828,14 @@ class TestAddTurnsWithDataClasses:
 
     def test_list_events_no_branch_filter(self):
         """Test list_events without branch filtering."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock response
             mock_events = [{"eventId": "event-1", "eventTimestamp": datetime.now()}]
@@ -2625,11 +2851,14 @@ class TestAddTurnsWithDataClasses:
 
     def test_list_branches_no_pagination(self):
         """Test list_branches without pagination (single response)."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock single response (no pagination)
             mock_events = [
@@ -2649,11 +2878,14 @@ class TestAddTurnsWithDataClasses:
 
     def test_list_branches_with_pagination(self):
         """Test list_branches with pagination."""
-        with patch("boto3.client") as mock_boto_client:
+        with patch("boto3.Session") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.region_name = "us-west-2"
             mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
+            mock_session.client.return_value = mock_client_instance
+            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="test-memory-123", region="us-west-2")
+            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
             # Mock paginated responses
             first_batch = [{"eventId": "event-1", "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0)}]
