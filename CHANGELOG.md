@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5] - 2025-09-24
+
+### Other Changes
+- Added request header allowlist support (#93) (7377187)
+- Remove TestPyPI publishing step from release workflow (#89) (8f9bbf5)
+- feat(runtime): add kwargs support to run method (#79) (c61edef)
+
 ## [0.1.4] - 2025-09-17
 
 ### Other Changes
