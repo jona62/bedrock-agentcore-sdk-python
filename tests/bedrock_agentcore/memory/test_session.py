@@ -13,8 +13,6 @@ from bedrock_agentcore.memory.constants import BlobMessage, ConversationalMessag
 from bedrock_agentcore.memory.models import (
     ActorSummary,
     Branch,
-    BranchContext,
-    ConversationTree,
     Event,
     EventMessage,
     MemoryRecord,
@@ -160,9 +158,9 @@ class TestSessionManager:
 
             manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
-            # Mock search_long_term_memory
+            # Mock search_long_term_memories
             mock_memories = [{"content": {"text": "Previous context"}, "memoryRecordId": "rec-123"}]
-            with patch.object(manager, "search_long_term_memory", return_value=mock_memories):
+            with patch.object(manager, "search_long_term_memories", return_value=mock_memories):
                 # Mock add_turns
                 mock_event = {"eventId": "event-123", "memoryId": "testMemory-1234567890"}
                 with patch.object(manager, "add_turns", return_value=Event(mock_event)):
@@ -662,96 +660,6 @@ class TestSessionManager:
             with pytest.raises(ClientError):
                 manager.list_branches(actor_id="user-123", session_id="session-456")
 
-    def test_get_conversation_tree_success(self):
-        """Test get_conversation_tree successful execution."""
-        with patch("boto3.Session") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session.region_name = "us-west-2"
-            mock_client_instance = MagicMock()
-            mock_session.client.return_value = mock_client_instance
-            mock_session_class.return_value = mock_session
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events with branches and payloads
-            mock_events = [
-                {
-                    "eventId": "event-1",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                    "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello main branch"}}}],
-                },
-                {
-                    "eventId": "event-2",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 5, 0),
-                    "branch": {"name": "branch-1", "rootEventId": "event-1"},
-                    "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello branch 1"}}}],
-                },
-            ]
-            mock_client_instance.list_events.return_value = {"events": mock_events, "nextToken": None}
-
-            result = manager.get_conversation_tree(actor_id="user-123", session_id="session-456")
-
-            assert isinstance(result, ConversationTree)
-            assert result["session_id"] == "session-456"
-            assert result["actor_id"] == "user-123"
-            assert len(result["main_branch"]["events"]) == 1
-            assert len(result["main_branch"]["branches"]) == 1
-            assert "branch-1" in result["main_branch"]["branches"]
-
-    def test_get_conversation_tree_client_error(self):
-        """Test get_conversation_tree with ClientError."""
-        with patch("boto3.Session") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session.region_name = "us-west-2"
-            mock_client_instance = MagicMock()
-            mock_session.client.return_value = mock_client_instance
-            mock_session_class.return_value = mock_session
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock ClientError
-            error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid parameters"}}
-            mock_client_instance.list_events.side_effect = ClientError(error_response, "ListEvents")
-
-            with pytest.raises(ClientError):
-                manager.get_conversation_tree(actor_id="user-123", session_id="session-456")
-
-    def test_merge_branch_context_success(self):
-        """Test merge_branch_context successful execution."""
-        with patch("boto3.Session") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session.region_name = "us-west-2"
-            mock_client_instance = MagicMock()
-            mock_session.client.return_value = mock_client_instance
-            mock_session_class.return_value = mock_session
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock list_events (which is what merge_branch_context actually calls)
-            mock_events = [
-                {
-                    "eventId": "event-1",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                    "payload": [{"conversational": {"role": "USER", "content": {"text": "First message"}}}],
-                },
-                {
-                    "eventId": "event-2",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 5, 0),
-                    "payload": [{"conversational": {"role": "ASSISTANT", "content": {"text": "Second message"}}}],
-                },
-            ]
-            with patch.object(manager, "list_events", return_value=mock_events):
-                result = manager.merge_branch_context(
-                    actor_id="user-123", session_id="session-456", branch_name="test-branch"
-                )
-
-                assert len(result) == 2
-                assert all(isinstance(msg, BranchContext) for msg in result)
-                assert result[0]["content"] == "First message"
-                assert result[0]["role"] == "USER"
-                assert result[1]["content"] == "Second message"
-                assert result[1]["role"] == "ASSISTANT"
-
     def test_get_last_k_turns_success(self):
         """Test get_last_k_turns successful execution."""
         with patch("boto3.Session") as mock_session_class:
@@ -919,8 +827,8 @@ class TestSessionManager:
             with pytest.raises(ClientError):
                 manager.delete_event(actor_id="user-123", session_id="session-456", event_id="invalid-event")
 
-    def test_search_long_term_memory_success(self):
-        """Test search_long_term_memory successful execution."""
+    def test_search_long_term_memories_success(self):
+        """Test search_long_term_memories successful execution."""
         with patch("boto3.Session") as mock_session_class:
             mock_session = MagicMock()
             mock_session.region_name = "us-west-2"
@@ -939,7 +847,7 @@ class TestSessionManager:
             }
             mock_client_instance.retrieve_memory_records.return_value = mock_response
 
-            result = manager.search_long_term_memory(query="test query", namespace_prefix="test/namespace", top_k=5)
+            result = manager.search_long_term_memories(query="test query", namespace_prefix="test/namespace", top_k=5)
 
             assert len(result) == 2
             assert all(isinstance(record, MemoryRecord) for record in result)
@@ -953,8 +861,8 @@ class TestSessionManager:
             assert call_args["searchCriteria"]["topK"] == 5
             assert call_args["namespace"] == "test/namespace"
 
-    def test_search_long_term_memory_with_strategy(self):
-        """Test search_long_term_memory with strategy_id."""
+    def test_search_long_term_memories_with_strategy(self):
+        """Test search_long_term_memories with strategy_id."""
         with patch("boto3.Session") as mock_session_class:
             mock_session = MagicMock()
             mock_session.region_name = "us-west-2"
@@ -968,7 +876,7 @@ class TestSessionManager:
             mock_response = {"memoryRecordSummaries": []}
             mock_client_instance.retrieve_memory_records.return_value = mock_response
 
-            result = manager.search_long_term_memory(
+            result = manager.search_long_term_memories(
                 query="test query", namespace_prefix="test/namespace", strategy_id="strategy-123"
             )
 
@@ -978,8 +886,8 @@ class TestSessionManager:
             call_args = mock_client_instance.retrieve_memory_records.call_args[1]
             assert call_args["searchCriteria"]["strategyId"] == "strategy-123"
 
-    def test_search_long_term_memory_client_error(self):
-        """Test search_long_term_memory with ClientError."""
+    def test_search_long_term_memories_client_error(self):
+        """Test search_long_term_memories with ClientError."""
         with patch("boto3.Session") as mock_session_class:
             mock_session = MagicMock()
             mock_session.region_name = "us-west-2"
@@ -996,7 +904,7 @@ class TestSessionManager:
             )
 
             with pytest.raises(ClientError):
-                manager.search_long_term_memory(query="invalid query", namespace_prefix="test/namespace")
+                manager.search_long_term_memories(query="invalid query", namespace_prefix="test/namespace")
 
     def test_list_long_term_memory_records_success(self):
         """Test list_long_term_memory_records successful execution."""
@@ -1441,8 +1349,8 @@ class TestSession:
 
                 mock_delete_record.assert_called_once_with("rec-123")
 
-    def test_session_search_long_term_memory_delegation(self):
-        """Test Session.search_long_term_memory delegates to manager."""
+    def test_session_search_long_term_memories_delegation(self):
+        """Test Session.search_long_term_memories delegates to manager."""
         with patch("boto3.Session"):
             manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
             session = Session(
@@ -1451,8 +1359,8 @@ class TestSession:
 
             # Mock manager method
             mock_records = [MemoryRecord({"memoryRecordId": "rec-123"})]
-            with patch.object(manager, "search_long_term_memory", return_value=mock_records) as mock_search:
-                result = session.search_long_term_memory(query="test query", namespace_prefix="test/namespace")
+            with patch.object(manager, "search_long_term_memories", return_value=mock_records) as mock_search:
+                result = session.search_long_term_memories(query="test query", namespace_prefix="test/namespace")
 
                 assert result == mock_records
                 mock_search.assert_called_once_with("test query", "test/namespace", 3, None, 20)
@@ -1528,37 +1436,6 @@ class TestSession:
                 assert result == mock_branches
                 mock_list_branches.assert_called_once_with("user-123", "session-456")
 
-    def test_session_get_conversation_tree_delegation(self):
-        """Test Session.get_conversation_tree delegates to manager."""
-        with patch("boto3.Session"):
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-            session = Session(
-                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
-            )
-
-            # Mock manager method
-            mock_tree = ConversationTree({"session_id": "session-456"})
-            with patch.object(manager, "get_conversation_tree", return_value=mock_tree) as mock_get_tree:
-                result = session.get_conversation_tree()
-
-                assert result == mock_tree
-                mock_get_tree.assert_called_once_with("user-123", "session-456")
-
-    def test_session_merge_branch_context_delegation(self):
-        """Test Session.merge_branch_context delegates to manager."""
-        with patch("boto3.Session"):
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-            session = Session(
-                memory_id="testMemory-1234567890", actor_id="user-123", session_id="session-456", manager=manager
-            )
-
-            # Mock manager method
-            mock_context = [BranchContext({"content": "message"})]
-            with patch.object(manager, "merge_branch_context", return_value=mock_context) as mock_merge:
-                result = session.merge_branch_context(branch_name="test-branch")
-
-                assert result == mock_context
-                mock_merge.assert_called_once_with("user-123", "session-456", "test-branch", True)
 
     def test_session_get_actor(self):
         """Test Session.get_actor returns Actor instance."""
@@ -1665,9 +1542,9 @@ class TestEdgeCases:
 
             manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
-            # Mock search_long_term_memory
+            # Mock search_long_term_memories
             mock_memories = []
-            with patch.object(manager, "search_long_term_memory", return_value=mock_memories) as mock_search:
+            with patch.object(manager, "search_long_term_memories", return_value=mock_memories) as mock_search:
                 # Mock add_turns
                 mock_event = {"eventId": "event-123"}
                 with patch.object(manager, "add_turns", return_value=Event(mock_event)):
@@ -1710,64 +1587,6 @@ class TestEdgeCases:
             # Should only return 50 events
             assert len(result) == 50
 
-    def test_get_conversation_tree_missing_root_event_id(self):
-        """Test get_conversation_tree handles missing rootEventId gracefully."""
-        with patch("boto3.Session") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session.region_name = "us-west-2"
-            mock_client_instance = MagicMock()
-            mock_session.client.return_value = mock_client_instance
-            mock_session_class.return_value = mock_session
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events with branch missing rootEventId
-            mock_events = [
-                {
-                    "eventId": "event-1",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                    "branch": {"name": "branch-1"},  # Missing rootEventId
-                    "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello"}}}],
-                }
-            ]
-            mock_client_instance.list_events.return_value = {"events": mock_events, "nextToken": None}
-
-            result = manager.get_conversation_tree(actor_id="user-123", session_id="session-456")
-
-            # Should handle missing rootEventId gracefully
-            assert "branch-1" in result["main_branch"]["branches"]
-            assert result["main_branch"]["branches"]["branch-1"]["root_event_id"] is None
-
-    def test_merge_branch_context_sorting(self):
-        """Test merge_branch_context sorts messages by timestamp."""
-        with patch("boto3.Session") as mock_boto_client:
-            mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events with out-of-order timestamps
-            mock_events = [
-                {
-                    "eventId": "event-2",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 5, 0),  # Later timestamp
-                    "payload": [{"conversational": {"role": "ASSISTANT", "content": {"text": "Second message"}}}],
-                },
-                {
-                    "eventId": "event-1",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),  # Earlier timestamp
-                    "payload": [{"conversational": {"role": "USER", "content": {"text": "First message"}}}],
-                },
-            ]
-            with patch.object(manager, "list_events", return_value=mock_events):
-                result = manager.merge_branch_context(
-                    actor_id="user-123", session_id="session-456", branch_name="test-branch"
-                )
-
-                # Should be sorted by timestamp (first message first)
-                assert len(result) == 2
-                assert result[0]["content"] == "First message"
-                assert result[1]["content"] == "Second message"
 
     def test_get_last_k_turns_turn_grouping(self):
         """Test get_last_k_turns properly groups messages into turns."""
@@ -1888,8 +1707,8 @@ class TestEdgeCases:
             sort_key = manager._event_sort_key(event)
             assert sort_key == (0, "")
 
-    def test_search_long_term_memory_without_strategy_id(self):
-        """Test search_long_term_memory without strategy_id to cover missing branch."""
+    def test_search_long_term_memories_without_strategy_id(self):
+        """Test search_long_term_memories without strategy_id to cover missing branch."""
         with patch("boto3.Session") as mock_session_class:
             mock_session = MagicMock()
             mock_session.region_name = "us-west-2"
@@ -1903,7 +1722,7 @@ class TestEdgeCases:
             mock_response = {"memoryRecordSummaries": []}
             mock_client_instance.retrieve_memory_records.return_value = mock_response
 
-            result = manager.search_long_term_memory(query="test query", namespace_prefix="test/namespace")
+            result = manager.search_long_term_memories(query="test query", namespace_prefix="test/namespace")
 
             assert result == []
 
@@ -1976,97 +1795,6 @@ class TestEdgeCases:
             assert len(result) == 5
             assert mock_client_instance.list_events.call_count == 1
 
-    def test_get_conversation_tree_no_payload(self):
-        """Test get_conversation_tree with events that have no payload."""
-        with patch("boto3.Session") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session.region_name = "us-west-2"
-            mock_client_instance = MagicMock()
-            mock_session.client.return_value = mock_client_instance
-            mock_session_class.return_value = mock_session
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events without payload
-            mock_events = [
-                {"eventId": "event-1", "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0)},  # No payload
-            ]
-            mock_client_instance.list_events.return_value = {"events": mock_events, "nextToken": None}
-
-            result = manager.get_conversation_tree(actor_id="user-123", session_id="session-456")
-
-            assert isinstance(result, ConversationTree)
-            assert len(result["main_branch"]["events"]) == 1
-            assert result["main_branch"]["events"][0]["messages"] == []  # No messages due to no payload
-
-    def test_get_conversation_tree_no_conversational_payload(self):
-        """Test get_conversation_tree with payload that has no conversational items."""
-        with patch("boto3.Session") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session.region_name = "us-west-2"
-            mock_client_instance = MagicMock()
-            mock_session.client.return_value = mock_client_instance
-            mock_session_class.return_value = mock_session
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events with non-conversational payload
-            mock_events = [
-                {
-                    "eventId": "event-1",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                    "payload": [{"blob": {"data": "some_data"}}],  # Non-conversational payload
-                }
-            ]
-            mock_client_instance.list_events.return_value = {"events": mock_events, "nextToken": None}
-
-            result = manager.get_conversation_tree(actor_id="user-123", session_id="session-456")
-
-            assert isinstance(result, ConversationTree)
-            assert len(result["main_branch"]["events"]) == 1
-            assert result["main_branch"]["events"][0]["messages"] == []  # No conversational messages
-
-    def test_merge_branch_context_no_payload(self):
-        """Test merge_branch_context with events that have no payload."""
-        with patch("boto3.Session") as mock_boto_client:
-            mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events without payload
-            mock_events = [
-                {"eventId": "event-1", "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0)},  # No payload
-            ]
-            with patch.object(manager, "list_events", return_value=mock_events):
-                result = manager.merge_branch_context(
-                    actor_id="user-123", session_id="session-456", branch_name="test-branch"
-                )
-
-                assert len(result) == 0  # No messages due to no payload
-
-    def test_merge_branch_context_no_conversational_payload(self):
-        """Test merge_branch_context with payload that has no conversational items."""
-        with patch("boto3.Session") as mock_boto_client:
-            mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events with non-conversational payload
-            mock_events = [
-                {
-                    "eventId": "event-1",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                    "payload": [{"blob": {"data": "some_data"}}],  # Non-conversational payload
-                }
-            ]
-            with patch.object(manager, "list_events", return_value=mock_events):
-                result = manager.merge_branch_context(
-                    actor_id="user-123", session_id="session-456", branch_name="test-branch"
-                )
-
-                assert len(result) == 0  # No conversational messages
 
     def test_get_last_k_turns_no_conversational_payload(self):
         """Test get_last_k_turns with payload that has no conversational items."""
@@ -2255,9 +1983,9 @@ class TestAdditionalCoverage:
 
             manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
 
-            # Mock search_long_term_memory
+            # Mock search_long_term_memories
             mock_memories = []
-            with patch.object(manager, "search_long_term_memory", return_value=mock_memories) as mock_search:
+            with patch.object(manager, "search_long_term_memories", return_value=mock_memories) as mock_search:
                 # Mock add_turns
                 mock_event = {"eventId": "event-123"}
                 with patch.object(manager, "add_turns", return_value=Event(mock_event)):
@@ -2569,36 +2297,9 @@ class TestAddTurnsWithDataClasses:
             assert "'SessionManager' object has no attribute 'some_control_plane_method'" in str(exc_info.value)
             assert "Method not found on _data_plane_client" in str(exc_info.value)
 
-    def test_get_conversation_tree_branch_without_root_event_id(self):
-        """Test get_conversation_tree with branch missing rootEventId - covers line 405->430."""
-        with patch("boto3.Session") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session.region_name = "us-west-2"
-            mock_client_instance = MagicMock()
-            mock_session.client.return_value = mock_client_instance
-            mock_session_class.return_value = mock_session
 
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events with branch that has no rootEventId field
-            mock_events = [
-                {
-                    "eventId": "event-1",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                    "branch": {"name": "branch-1"},  # Missing rootEventId field
-                    "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello"}}}],
-                }
-            ]
-            mock_client_instance.list_events.return_value = {"events": mock_events, "nextToken": None}
-
-            result = manager.get_conversation_tree(actor_id="user-123", session_id="session-456")
-
-            # Should handle missing rootEventId gracefully using .get()
-            assert "branch-1" in result["main_branch"]["branches"]
-            assert result["main_branch"]["branches"]["branch-1"]["root_event_id"] is None
-
-    def test_search_long_term_memory_info_logging_on_client_error(self):
-        """Test search_long_term_memory logs info on ClientError - covers line 481."""
+    def test_search_long_term_memories_info_logging_on_client_error(self):
+        """Test search_long_term_memories logs info on ClientError - covers line 481."""
         with patch("boto3.Session") as mock_session_class:
             mock_session = MagicMock()
             mock_session.region_name = "us-west-2"
@@ -2616,7 +2317,7 @@ class TestAddTurnsWithDataClasses:
 
             with patch("bedrock_agentcore.memory.session.logger") as mock_logger:
                 with pytest.raises(ClientError):
-                    manager.search_long_term_memory(query="invalid query", namespace_prefix="test/namespace")
+                    manager.search_long_term_memories(query="invalid query", namespace_prefix="test/namespace")
 
                 # Verify info logging was called (not error logging)
                 mock_logger.info.assert_called_with("     ❌ Error querying long-term memory", mock.ANY)
@@ -2689,51 +2390,6 @@ class TestAddTurnsWithDataClasses:
                     max_results=100,
                 )
 
-    def test_merge_branch_context_with_missing_content_fields(self):
-        """Test merge_branch_context with events missing content fields - covers line 563->566."""
-        with patch("boto3.Session") as mock_boto_client:
-            mock_client_instance = MagicMock()
-            mock_boto_client.return_value = mock_client_instance
-
-            manager = SessionManager(memory_id="testMemory-1234567890", region_name="us-west-2")
-
-            # Mock events with missing content fields
-            mock_events = [
-                {
-                    "eventId": "event-1",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                    "payload": [
-                        {
-                            "conversational": {
-                                "role": "USER",
-                                # Missing "content" field entirely
-                            }
-                        }
-                    ],
-                },
-                {
-                    "eventId": "event-2",
-                    "eventTimestamp": datetime(2023, 1, 1, 10, 5, 0),
-                    "payload": [
-                        {
-                            "conversational": {
-                                "role": "ASSISTANT",
-                                "content": {},  # Empty content object (missing "text")
-                            }
-                        }
-                    ],
-                },
-            ]
-            with patch.object(manager, "list_events", return_value=mock_events):
-                result = manager.merge_branch_context(
-                    actor_id="user-123", session_id="session-456", branch_name="test-branch"
-                )
-
-                assert len(result) == 2
-                # Both should have empty content due to missing fields
-                assert result[0]["content"] == ""  # Missing content field entirely
-                assert result[1]["content"] == ""  # Missing text field in content
-
     def test_getattr_debug_logging(self):
         """Test __getattr__ debug logging when method is found."""
         with patch("boto3.Session") as mock_session_class:
@@ -2769,8 +2425,8 @@ class TestAddTurnsWithDataClasses:
             # Mock add_turns
             mock_event = {"eventId": "event-123"}
             with patch.object(manager, "add_turns", return_value=Event(mock_event)):
-                # Mock search_long_term_memory to ensure it's not called
-                with patch.object(manager, "search_long_term_memory") as mock_search:
+                # Mock search_long_term_memories to ensure it's not called
+                with patch.object(manager, "search_long_term_memories") as mock_search:
 
                     def mock_llm_callback(user_input: str, memories: List[Dict[str, Any]]) -> str:
                         return "Response"

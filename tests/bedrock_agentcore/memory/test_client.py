@@ -584,41 +584,6 @@ def test_list_events_max_results_limit():
         assert kwargs["maxResults"] == 25
 
 
-def test_get_conversation_tree():
-    """Test get_conversation_tree functionality."""
-    with patch("boto3.client"):
-        client = MemoryClient()
-
-        # Mock the client
-        mock_gmdp = MagicMock()
-        client.gmdp_client = mock_gmdp
-
-        # Mock events with branches
-        mock_events = [
-            {
-                "eventId": "event-1",
-                "eventTimestamp": datetime(2023, 1, 1, 10, 0, 0),
-                "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello main branch"}}}],
-            },
-            {
-                "eventId": "event-2",
-                "eventTimestamp": datetime(2023, 1, 1, 10, 5, 0),
-                "branch": {"name": "branch-1", "rootEventId": "event-1"},
-                "payload": [{"conversational": {"role": "USER", "content": {"text": "Hello branch 1"}}}],
-            },
-        ]
-        mock_gmdp.list_events.return_value = {"events": mock_events, "nextToken": None}
-
-        # Test get_conversation_tree
-        tree = client.get_conversation_tree(memory_id="mem-123", actor_id="user-123", session_id="session-456")
-
-        assert tree["session_id"] == "session-456"
-        assert tree["actor_id"] == "user-123"
-        assert len(tree["main_branch"]["events"]) == 1
-        assert len(tree["main_branch"]["branches"]) == 1
-        assert "branch-1" in tree["main_branch"]["branches"]
-
-
 def test_list_memories():
     """Test list_memories functionality."""
     with patch("boto3.client"):
@@ -2103,26 +2068,6 @@ def test_list_branch_events_client_error():
             raise AssertionError("ClientError was not raised")
         except ClientError as e:
             assert "ThrottlingException" in str(e)
-
-
-def test_get_conversation_tree_client_error():
-    """Test get_conversation_tree with ClientError."""
-    with patch("boto3.client"):
-        client = MemoryClient()
-
-        # Mock the client
-        mock_gmdp = MagicMock()
-        client.gmdp_client = mock_gmdp
-
-        # Mock ClientError
-        error_response = {"Error": {"Code": "ValidationException", "Message": "Invalid session ID"}}
-        mock_gmdp.list_events.side_effect = ClientError(error_response, "ListEvents")
-
-        try:
-            client.get_conversation_tree(memory_id="mem-123", actor_id="user-123", session_id="invalid-session")
-            raise AssertionError("ClientError was not raised")
-        except ClientError as e:
-            assert "ValidationException" in str(e)
 
 
 def test_get_event():

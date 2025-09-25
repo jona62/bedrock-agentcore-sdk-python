@@ -28,31 +28,6 @@ class Branch(DictWrapper):
         """
         super().__init__(data)
 
-
-class BranchContext(DictWrapper):
-    """A class representing a branch context."""
-
-    def __init__(self, data: Dict[str, Any]):
-        """Initialize a BranchContext instance.
-
-        Args:
-            data: Dictionary containing branch context data.
-        """
-        super().__init__(data)
-
-
-class ConversationTree(DictWrapper):
-    """A class representing a conversation tree."""
-
-    def __init__(self, data: Dict[str, Any]):
-        """Initialize a ConversationTree instance.
-
-        Args:
-            data: Dictionary containing conversation tree data.
-        """
-        super().__init__(data)
-
-
 class Event(DictWrapper):
     """A class representing an event."""
 

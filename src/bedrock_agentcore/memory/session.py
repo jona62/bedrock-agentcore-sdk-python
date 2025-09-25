@@ -12,8 +12,6 @@ from .constants import BlobMessage, ConversationalMessage, MessageRole
 from .models import (
     ActorSummary,
     Branch,
-    BranchContext,
-    ConversationTree,
     DictWrapper,
     Event,
     EventMessage,
@@ -266,7 +264,7 @@ class SessionManager:
         retrieved_memories = []
         if retrieval_namespace:
             search_query = retrieval_query or user_input
-            retrieved_memories = self.search_long_term_memory(
+            retrieved_memories = self.search_long_term_memories(
                 query=search_query, namespace_prefix=retrieval_namespace, top_k=top_k
             )
             logger.info("Retrieved %d memories for LLM context", len(retrieved_memories))
@@ -568,133 +566,6 @@ class SessionManager:
             logger.error("Failed to list branches: %s", e)
             raise
 
-    def get_conversation_tree(self, actor_id: str, session_id: str) -> ConversationTree:
-        """Get a tree structure of the conversation with all branches.
-
-        This method transforms a flat list of events into a hierarchical tree structure,
-        providing visualization-ready data that would be complex to build from raw events.
-        It handles:
-        - Full pagination to get all events
-        - Grouping by branches
-        - Message summarization
-        - Tree structure building
-
-        Returns:
-            Dictionary representing the conversation tree structure
-        """
-        try:
-            # Get all events - need to handle pagination for complete list
-            all_events = []
-            next_token = None
-            max_iterations = 1000  # Safety limit to prevent infinite loops
-
-            iteration_count = 0
-            while iteration_count < max_iterations:
-                iteration_count += 1
-
-                params = {"memoryId": self._memory_id, "actorId": actor_id, "sessionId": session_id, "maxResults": 100}
-
-                if next_token:
-                    params["nextToken"] = next_token
-
-                response = self._data_plane_client.list_events(**params)
-                events = response.get("events", [])
-
-                # If no events returned, break to prevent infinite loop
-                if not events:
-                    logger.debug("No more events returned, ending pagination in get_conversation_tree")
-                    break
-
-                all_events.extend(events)
-
-                next_token = response.get("nextToken")
-                if not next_token:
-                    break
-
-            if iteration_count >= max_iterations:
-                logger.warning(
-                    "Reached maximum iteration limit (%d) in get_conversation_tree pagination", max_iterations
-                )
-
-            # Build tree structure
-            tree = {"session_id": session_id, "actor_id": actor_id, "main_branch": {"events": [], "branches": {}}}
-
-            # Group events by branch
-            for event in all_events:
-                event_summary = {"eventId": event["eventId"], "timestamp": event["eventTimestamp"], "messages": []}
-
-                # Extract message summaries
-                if "payload" in event:
-                    for payload_item in event.get("payload", []):
-                        if "conversational" in payload_item:
-                            conv = payload_item["conversational"]
-                            event_summary["messages"].append(
-                                {"role": conv.get("role"), "text": conv.get("content", {}).get("text", "")[:50] + "..."}
-                            )
-
-                branch_info = event.get("branch")
-                if branch_info:
-                    branch_name = branch_info["name"]
-                    root_event = branch_info.get("rootEventId")  # Use .get() to handle missing field
-
-                    if branch_name not in tree["main_branch"]["branches"]:
-                        tree["main_branch"]["branches"][branch_name] = {"root_event_id": root_event, "events": []}
-
-                    tree["main_branch"]["branches"][branch_name]["events"].append(event_summary)
-                else:
-                    tree["main_branch"]["events"].append(event_summary)
-
-            logger.info("Built conversation tree with %d branches", len(tree["main_branch"]["branches"]))
-            return ConversationTree(tree)
-
-        except ClientError as e:
-            logger.error("Failed to build conversation tree: %s", e)
-            raise
-
-    def merge_branch_context(
-        self, actor_id: str, session_id: str, branch_name: str, include_parent: bool = True
-    ) -> List[BranchContext]:
-        """Get all messages from a branch for context building.
-
-        Args:
-            actor_id: Actor identifier
-            session_id: Session identifier
-            branch_name: Branch to get context from
-            include_parent: Whether to include parent branch events
-
-        Returns:
-            List of all messages in chronological order
-        """
-        events = self.list_events(
-            actor_id=actor_id,
-            session_id=session_id,
-            branch_name=branch_name,
-            include_parent_events=include_parent,
-            max_results=100,
-        )
-
-        messages = []
-        for event in events:
-            if "payload" in event:
-                for payload_item in event.get("payload", []):
-                    if "conversational" in payload_item:
-                        conv = payload_item["conversational"]
-                        messages.append(
-                            {
-                                "timestamp": event["eventTimestamp"],
-                                "eventId": event["eventId"],
-                                "branch": event.get("branch", {}).get("name", "main"),
-                                "role": conv.get("role"),
-                                "content": conv.get("content", {}).get("text", ""),
-                            }
-                        )
-
-        # Sort by timestamp
-        messages.sort(key=lambda x: x["timestamp"])
-
-        logger.info("Retrieved %d messages from branch '%s'", len(messages), branch_name)
-        return [BranchContext(message) for message in messages]
-
     def get_last_k_turns(
         self,
         actor_id: str,
@@ -784,7 +655,7 @@ class SessionManager:
             logger.error("     ❌ Error deleting event: %s", e)
             raise
 
-    def search_long_term_memory(
+    def search_long_term_memories(
         self,
         query: str,
         namespace_prefix: str,
@@ -1010,11 +881,11 @@ class Session(DictWrapper):
         """Delegates to manager.delete_memory_record."""
         return self._manager.delete_memory_record(record_id)
 
-    def search_long_term_memory(
+    def search_long_term_memories(
         self, query: str, namespace_prefix: str, top_k: int = 3, strategy_id: str = None, max_results: int = 20
     ) -> List[MemoryRecord]:
-        """Delegates to manager.search_long_term_memory."""
-        return self._manager.search_long_term_memory(query, namespace_prefix, top_k, strategy_id, max_results)
+        """Delegates to manager.search_long_term_memories."""
+        return self._manager.search_long_term_memories(query, namespace_prefix, top_k, strategy_id, max_results)
 
     def list_long_term_memory_records(
         self, namespace_prefix: str, strategy_id: Optional[str] = None, max_results: int = 10
@@ -1046,14 +917,6 @@ class Session(DictWrapper):
     def list_branches(self) -> List[Branch]:
         """Delegates to manager.list_branches."""
         return self._manager.list_branches(self._actor_id, self._session_id)
-
-    def get_conversation_tree(self) -> ConversationTree:
-        """Delegates to manager.get_conversation_tree."""
-        return self._manager.get_conversation_tree(self._actor_id, self._session_id)
-
-    def merge_branch_context(self, branch_name: str, include_parent: bool = True) -> List[BranchContext]:
-        """Delegates to manager.merge_branch_context."""
-        return self._manager.merge_branch_context(self._actor_id, self._session_id, branch_name, include_parent)
 
     def get_actor(self) -> "Actor":
         """Returns an Actor instance for this conversation's actor."""
