@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import boto3
 from botocore.exceptions import ClientError
 
-from .constants import BlobMessage, ConversationalMessage, MessageRole
+from .constants import BlobMessage, ConversationalMessage, MessageRole, RetrievalConfig
 from .models import (
     ActorSummary,
     Branch,
@@ -22,10 +22,10 @@ from .models import (
 logger = logging.getLogger(__name__)
 
 
-class SessionManager:
+class MemorySessionManager:
     """Manages conversational sessions and memory operations for AWS Bedrock AgentCore.
 
-    The SessionManager provides a high-level interface for managing conversational AI sessions,
+    The MemorySessionManager provides a high-level interface for managing conversational AI sessions,
     handling both short-term (conversational events) and long-term (semantic memory) storage.
     It serves as the primary entry point for data plane operations with AWS Bedrock AgentCore
     Memory services.
@@ -46,7 +46,7 @@ class SessionManager:
     Example:
         ```python
         # Initialize manager
-        manager = SessionManager(memory_id="my-memory-123", region_name="us-east-1")
+        manager = MemorySessionManager(memory_id="my-memory-123", region_name="us-east-1")
 
         # Store a conversation turn
         manager.add_turns(
@@ -91,7 +91,7 @@ class SessionManager:
     def __init__(
         self, memory_id: str, region_name: Optional[str] = None, boto3_session: Optional[boto3.Session] = None
     ):
-        """Initialize a SessionManager instance.
+        """Initialize a MemorySessionManager instance.
 
         Args:
             memory_id: The memory identifier for this session manager.
@@ -150,7 +150,7 @@ class SessionManager:
 
         Example:
             # Access any boto3 method directly
-            manager = SessionManager(region_name="us-east-1")
+            manager = MemorySessionManager(region_name="us-east-1")
 
             # These calls are forwarded to the appropriate boto3 functions
             memory_records = manager.retrieve_memory_records()
@@ -169,53 +169,13 @@ class SessionManager:
             f"'bedrock-agentcore' services."
         )
 
-    def _event_sort_key(self, event: Dict[str, Any]) -> Tuple[int, str]:
-        """Generate sort key for chronological event ordering with stable tie-breaker.
-
-        Uses the millisecond prefix of eventId to break same-second ties, ensuring
-        deterministic ordering even when multiple events share the same eventTimestamp.
-
-        Args:
-            event: Event dictionary containing eventId and eventTimestamp
-
-        Returns:
-            Tuple of (milliseconds_since_epoch, suffix) for stable sorting
-        """
-        event_id = event.get("eventId", "")
-
-        # eventId format: "<epoch_ms>#<suffix>"
-        head, _, tail = event_id.partition("#")
-
-        try:
-            # Extract milliseconds from eventId prefix
-            ms = int(head)
-        except (ValueError, TypeError):
-            # Fallback to timestamp if eventId format is unexpected
-            event_timestamp = event.get("eventTimestamp")
-            if event_timestamp:
-                if isinstance(event_timestamp, datetime):
-                    ms = int(event_timestamp.timestamp() * 1000)
-                else:
-                    # Handle string timestamps (ISO format)
-                    try:
-                        dt = datetime.fromisoformat(event_timestamp.replace("Z", "+00:00"))
-                        ms = int(dt.timestamp() * 1000)
-                    except (ValueError, AttributeError):
-                        ms = 0
-            else:
-                ms = 0
-
-        return (ms, tail)
-
     def process_turn_with_llm(
         self,
         actor_id: str,
         session_id: str,
         user_input: str,
         llm_callback: Callable[[str, List[Dict[str, Any]]], str],
-        retrieval_namespace: Optional[str] = None,
-        retrieval_query: Optional[str] = None,
-        top_k: int = 3,
+        retrieval_config: Optional[Dict[str, RetrievalConfig]],
         event_timestamp: Optional[datetime] = None,
     ) -> Tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
         r"""Complete conversation turn with LLM callback integration.
@@ -230,18 +190,20 @@ class SessionManager:
             llm_callback: Function that takes (user_input, memories) and returns agent_response
                          The callback receives the user input and retrieved memories,
                          and should return the agent's response string
-            retrieval_namespace: Namespace to search for memories (optional)
-            retrieval_query: Custom search query (defaults to user_input)
-            top_k: Number of memories to retrieve
+            retrieval_config: Optional dictionary mapping namespaces to RetrievalConfig objects.
+                            Each namespace can contain template variables like {actorId}, {sessionId},
+                            {memoryStrategyId} that will be resolved at runtime.
             event_timestamp: Optional timestamp for the event
 
         Returns:
             Tuple of (retrieved_memories, agent_response, created_event)
 
         Example:
+            from bedrock_agentcore.memory.constants import RetrievalConfig
+
             def my_llm(user_input: str, memories: List[Dict]) -> str:
                 # Format context from memories
-                context = "\\n".join([m['content']['text'] for m in memories])
+                context = "\\n".join([m.get('content', {}).get('text', '') for m in memories])
 
                 # Call your LLM (Bedrock, OpenAI, etc.)
                 response = bedrock.invoke_model(
@@ -252,22 +214,43 @@ class SessionManager:
                 )
                 return response['content']
 
-            memories, response, event = client.process_turn_with_llm(
+            retrieval_config = {
+                "support/facts/{sessionId}": RetrievalConfig(top_k=5, relevance_score=0.3),
+                "user/preferences/{actorId}": RetrievalConfig(top_k=3, relevance_score=0.5)
+            }
+
+            memories, response, event = manager.process_turn_with_llm(
                 actor_id="user-123",
                 session_id="session-456",
                 user_input="What did we discuss yesterday?",
                 llm_callback=my_llm,
-                retrieval_namespace="support/facts/{sessionId}"
+                retrieval_config=retrieval_config
             )
         """
         # Step 1: Retrieve relevant memories
         retrieved_memories = []
-        if retrieval_namespace:
-            search_query = retrieval_query or user_input
-            retrieved_memories = self.search_long_term_memories(
-                query=search_query, namespace_prefix=retrieval_namespace, top_k=top_k
-            )
-            logger.info("Retrieved %d memories for LLM context", len(retrieved_memories))
+        if retrieval_config:
+            for namespace, config in retrieval_config.items():
+                resolved_namespace = namespace.format(
+                    actorId=actor_id,
+                    sessionId=session_id,
+                    strategyId=config.strategy_id or "",
+                )
+                search_query = f"{config.retrieval_query} {user_input}" if config.retrieval_query else user_input
+                memory_records = self.search_long_term_memories(
+                    query=search_query, namespace_prefix=resolved_namespace, top_k=config.top_k
+                )
+                # Filter memory records with a relevance score which is lower than config.relevance_score
+                if config.relevance_score:
+                    memory_records = [
+                        record
+                        for record in memory_records
+                        if record.get("relevanceScore", config.relevance_score) >= config.relevance_score
+                    ]
+
+                retrieved_memories.extend(memory_records)
+
+        logger.info("Retrieved %d memories for LLM context", len(retrieved_memories))
 
         # Step 2: Invoke LLM callback
         try:
@@ -690,31 +673,43 @@ class SessionManager:
             raise
 
     def list_long_term_memory_records(
-        self, namespace_prefix: str, strategy_id: str = None, max_results: int = 10
+        self, namespace_prefix: str, strategy_id: Optional[str] = None, max_results: int = 10
     ) -> List[MemoryRecord]:
         """Lists all long-term memory records for this actor without a semantic query.
 
         Maps to: bedrock-agentcore.list_memory_records.
         """
         logger.info("  -> Listing all long-term records in namespace '%s'...", namespace_prefix)
-        params = {
-            "memoryId": self._memory_id,
-            "namespace": namespace_prefix,
-            "maxResults": max_results,
-        }
-
-        if strategy_id:
-            params["strategyId"] = strategy_id
 
         try:
             paginator = self._data_plane_client.get_paginator("list_memory_records")
+
+            params = {
+                "memoryId": self._memory_id,
+                "namespace": namespace_prefix,
+            }
+
+            if strategy_id:
+                params["memoryStrategyId"] = strategy_id
+
             pages = paginator.paginate(**params)
             all_records: List[MemoryRecord] = []
+
             for page in pages:
                 memory_records = page.get("memoryRecords", [])
+                # Also check for memoryRecordSummaries (which is what the API actually returns)
+                if not memory_records:
+                    memory_records = page.get("memoryRecordSummaries", [])
+
                 all_records.extend([MemoryRecord(record) for record in memory_records])
+
+                # Stop if we've reached max_results
+                if len(all_records) >= max_results:
+                    break
+
             logger.info("     ✅ Found a total of %d long-term records.", len(all_records))
-            return all_records
+            return all_records[:max_results]
+
         except ClientError as e:
             logger.error("     ❌ Error listing long-term records: %s", e)
             raise
@@ -785,27 +780,27 @@ class SessionManager:
             logger.error("  ❌ Error listing sessions: %s", e)
             raise
 
-    def create_session(self, actor_id: str, session_id: str = None) -> "Session":
-        """Creates a new Session instance."""
+    def create_memory_session(self, actor_id: str, session_id: str = None) -> "MemorySession":
+        """Creates a new MemorySession instance."""
         session_id = session_id or str(uuid.uuid4())
         logger.info("💬 Creating new conversation for actor '%s' in session '%s'...", actor_id, session_id)
-        return Session(memory_id=self._memory_id, actor_id=actor_id, session_id=session_id, manager=self)
+        return MemorySession(memory_id=self._memory_id, actor_id=actor_id, session_id=session_id, manager=self)
 
 
-class Session(DictWrapper):
-    """Represents a single, AgentCore Session resource.
+class MemorySession(DictWrapper):
+    """Represents a single, AgentCore MemorySession resource.
 
-    This class provides convenient delegation to SessionManager operations.
+    This class provides convenient delegation to MemorySessionManager operations.
     """
 
-    def __init__(self, memory_id: str, actor_id: str, session_id: str, manager: SessionManager):
-        """Initialize a Session instance.
+    def __init__(self, memory_id: str, actor_id: str, session_id: str, manager: MemorySessionManager):
+        """Initialize a MemorySession instance.
 
         Args:
             memory_id: The memory identifier for this session.
             actor_id: The actor identifier for this session.
             session_id: The session identifier.
-            manager: The SessionManager instance to delegate operations to.
+            manager: The MemorySessionManager instance to delegate operations to.
         """
         self._memory_id = memory_id
         self._actor_id = actor_id
@@ -842,9 +837,7 @@ class Session(DictWrapper):
         self,
         user_input: str,
         llm_callback: Callable[[str, List[Dict[str, Any]]], str],
-        retrieval_namespace: Optional[str] = None,
-        retrieval_query: Optional[str] = None,
-        top_k: int = 3,
+        retrieval_config: Optional[Dict[str, RetrievalConfig]],
         event_timestamp: Optional[datetime] = None,
     ) -> Tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
         """Delegates to manager.process_turn_with_llm."""
@@ -853,9 +846,7 @@ class Session(DictWrapper):
             self._session_id,
             user_input,
             llm_callback,
-            retrieval_namespace,
-            retrieval_query,
-            top_k,
+            retrieval_config,
             event_timestamp,
         )
 
@@ -882,7 +873,12 @@ class Session(DictWrapper):
         return self._manager.delete_memory_record(record_id)
 
     def search_long_term_memories(
-        self, query: str, namespace_prefix: str, top_k: int = 3, strategy_id: str = None, max_results: int = 20
+        self,
+        query: str,
+        namespace_prefix: str,
+        top_k: int = 3,
+        strategy_id: Optional[str] = None,
+        max_results: int = 20,
     ) -> List[MemoryRecord]:
         """Delegates to manager.search_long_term_memories."""
         return self._manager.search_long_term_memories(query, namespace_prefix, top_k, strategy_id, max_results)
@@ -926,7 +922,7 @@ class Session(DictWrapper):
 class Actor(DictWrapper):
     """Represents an actor within a session."""
 
-    def __init__(self, actor_id: str, session_manager: SessionManager):
+    def __init__(self, actor_id: str, session_manager: MemorySessionManager):
         """Represents an actor within a session.
 
         :param actor_id: id of the actor

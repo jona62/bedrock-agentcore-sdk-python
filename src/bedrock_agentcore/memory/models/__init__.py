@@ -28,6 +28,7 @@ class Branch(DictWrapper):
         """
         super().__init__(data)
 
+
 class Event(DictWrapper):
     """A class representing an event."""
 

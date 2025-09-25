@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class StrategyType(Enum):
@@ -133,3 +135,19 @@ class BlobMessage:
     """
 
     data: Any
+
+
+class RetrievalConfig(BaseModel):
+    """Configuration for memory retrieval operations.
+
+    Attributes:
+        top_k: Number of top-scoring records to return from semantic search (default: 10)
+        relevance_score: Relevance score to filter responses from semantic search (default: 0.0)
+        strategy_id: Optional parameter to filter memory strategies (default: None)
+        retrieval_query: Optional custom query for semantic search (default: None)
+    """
+
+    top_k: int = Field(default=10, gt=1, le=100)
+    relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    strategy_id: Optional[str] = None
+    retrieval_query: Optional[str] = None
