@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import boto3
+from botocore.config import Config as BotocoreConfig
 from botocore.exceptions import ClientError
 
 from .constants import BlobMessage, ConversationalMessage, MessageRole, RetrievalConfig
@@ -89,7 +90,11 @@ class MemorySessionManager:
     """
 
     def __init__(
-        self, memory_id: str, region_name: Optional[str] = None, boto3_session: Optional[boto3.Session] = None
+        self,
+        memory_id: str,
+        region_name: Optional[str] = None,
+        boto3_session: Optional[boto3.Session] = None,
+        boto_client_config: Optional[BotocoreConfig] = None,
     ):
         """Initialize a MemorySessionManager instance.
 
@@ -99,28 +104,29 @@ class MemorySessionManager:
                    will use the region from boto3_session or default session.
             boto3_session: Optional boto3 Session to use. If provided and region_name
                           parameter is also specified, validation will ensure they match.
+            boto_client_config: Optional boto3 client configuration. If provided, will be
+                              merged with default configuration including user agent.
 
         Raises:
             ValueError: If region_name parameter conflicts with boto3_session region.
         """
-        session = boto3_session if boto3_session else boto3.Session()
-        session_region = session.region_name
-
-        # Validate region consistency if both are provided
-        if region_name and boto3_session and session_region and region_name != session_region:
-            raise ValueError(
-                f"Region mismatch: provided region_name '{region_name}' does not match "
-                f"boto3_session region '{session_region}'. Please ensure both "
-                f"parameters specify the same region or omit the region_name parameter "
-                f"to use the session's region."
-            )
-
-        # Use provided region_name or fall back to session region
-        self.region_name = region_name or session_region
+        # Initialize core attributes
         self._memory_id = memory_id
-        self._data_plane_client = session.client("bedrock-agentcore", region_name=self.region_name)
 
-        # AgentCore Memory data plane methods
+        # Setup session and validate region consistency
+        session = boto3_session if boto3_session else boto3.Session()
+        self.region_name = self._validate_and_resolve_region(region_name, session)
+
+        # Configure and create boto3 client
+        client_config = self._build_client_config(boto_client_config)
+        self._data_plane_client = session.client(
+            "bedrock-agentcore", region_name=self.region_name, config=client_config
+        )
+
+        # Configure timestamp serialization to use float representation
+        self._configure_timestamp_serialization()
+
+        # Define allowed data plane methods
         self._ALLOWED_DATA_PLANE_METHODS = {
             "retrieve_memory_records",
             "get_memory_record",
@@ -131,6 +137,70 @@ class MemorySessionManager:
             "delete_event",
             "list_events",
         }
+
+    def _validate_and_resolve_region(self, region_name: Optional[str], session: boto3.Session) -> str:
+        """Validate region consistency and resolve the final region to use.
+
+        Args:
+            region_name: Explicitly provided region name
+            session: Boto3 session instance
+
+        Returns:
+            The resolved region name to use
+
+        Raises:
+            ValueError: If region_name conflicts with session region
+        """
+        session_region = session.region_name
+
+        # Validate region consistency if both are provided
+        if region_name and session_region and isinstance(session_region, str) and region_name != session_region:
+            raise ValueError(
+                f"Region mismatch: provided region_name '{region_name}' does not match "
+                f"boto3_session region '{session_region}'. Please ensure both "
+                f"parameters specify the same region or omit the region_name parameter "
+                f"to use the session's region."
+            )
+
+        return region_name or session_region
+
+    def _build_client_config(self, boto_client_config: Optional[BotocoreConfig]) -> BotocoreConfig:
+        """Build the final boto3 client configuration with SDK user agent.
+
+        Args:
+            boto_client_config: Optional user-provided client configuration
+
+        Returns:
+            Final client configuration with SDK user agent
+        """
+        sdk_user_agent = "bedrock-agentcore-sdk"
+
+        if boto_client_config:
+            existing_user_agent = getattr(boto_client_config, "user_agent_extra", None)
+            if existing_user_agent:
+                new_user_agent = f"{existing_user_agent} {sdk_user_agent}"
+            else:
+                new_user_agent = sdk_user_agent
+            return boto_client_config.merge(BotocoreConfig(user_agent_extra=new_user_agent))
+        else:
+            return BotocoreConfig(user_agent_extra=sdk_user_agent)
+
+    def _configure_timestamp_serialization(self) -> None:
+        """Configure the boto3 client to serialize timestamps as float values.
+
+        This method overrides the default timestamp serialization to convert datetime objects
+        to float timestamps (seconds since Unix epoch) which preserves millisecond precision
+        when sending datetime objects to the AgentCore Memory service.
+        """
+        original_serialize_timestamp = self._data_plane_client._serializer._serializer._serialize_type_timestamp
+
+        def serialize_timestamp_as_float(serialized, value, shape, name):
+            if isinstance(value, datetime):
+                serialized[name] = value.timestamp()  # Convert to float (seconds since epoch with fractional seconds)
+            else:
+                original_serialize_timestamp(serialized, value, shape, name)
+
+        self._data_plane_client._serializer._serializer._serialize_type_timestamp = serialize_timestamp_as_float
 
     def __getattr__(self, name: str):
         """Dynamically forward method calls to the appropriate boto3 client.
